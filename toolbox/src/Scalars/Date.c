@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 2; indent-tabs-mode: t; c-basic-offset: 2 -*- */
 //------------------------------------------------------------------
-// $Id: Date.c,v 1.3 2004/05/24 16:37:52 plg Exp $
+// $Id: Date.c,v 1.4 2004/05/26 16:11:23 plg Exp $
 //------------------------------------------------------------------
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -21,7 +21,7 @@
 
 /**
  * @defgroup DATE Date_t
- * @ingroup TB_SCALAR
+ * @ingroup Scalar
  * Class Date (extends TB_SCALAR, implements C-Castable & Serializable)
  * description : 
  *
@@ -46,7 +46,7 @@
 
 
 /** Assign Date in seconds from epoch (january, 1st 1970)
- *
+ * \ingroup DATE
  */
 retcode_t Dt_setAbsolute(Date_t T, time_t val) {
 	if(tb_valid(T, TB_DATE, __FUNCTION__) && val >0) {
@@ -67,6 +67,9 @@ retcode_t Dt_setAbsolute(Date_t T, time_t val) {
 }
 
 
+/** 
+ * \ingroup DATE
+ */
 retcode_t Dt_setBrokenDown(Date_t T, struct tm *val) {
 	if(tb_valid(T, TB_DATE, __FUNCTION__) && val >0) {
 		Date_members_t m = XDate(T);
@@ -92,12 +95,19 @@ retcode_t Dt_setBrokenDown(Date_t T, struct tm *val) {
 }
 
 
+/** 
+ * \ingroup DATE
+ */
 time_t Dt_getAbsolute(Date_t T) {
 	if(tb_valid(T, TB_DATE, __FUNCTION__)) return XDate(T)->absolute;
 	
 	return -1;
 }
 
+
+/** 
+ * \ingroup DATE
+ */
 struct tm *Dt_getBrokenDown(Date_t T, struct tm *stm) {
 	if(tb_valid(T, TB_DATE, __FUNCTION__)) {
 		Date_members_t m = XDate(T);
@@ -115,6 +125,9 @@ struct tm *Dt_getBrokenDown(Date_t T, struct tm *stm) {
 }
 
 
+/** 
+ * \ingroup DATE
+ */
 time_t iso8601_to_time(char *iso8601) {
 	//	"19930214T131030" or "1993-02-14T13:10:30" 
 	Vector_t V = tb_Vector();
@@ -148,6 +161,9 @@ time_t iso8601_to_time(char *iso8601) {
 }
 
 
+/** 
+ * \ingroup DATE
+ */
 int tb_DateCmp(Date_t Dt1, Date_t Dt2) {
 	if(tb_valid(Dt1, TB_DATE, __FUNCTION__) &&
 		 tb_valid(Dt2, TB_DATE, __FUNCTION__)) {
@@ -156,6 +172,10 @@ int tb_DateCmp(Date_t Dt1, Date_t Dt2) {
 	return TB_ERR;
 }
 
+
+/** 
+ * \ingroup DATE
+ */
 Date_t DateNow() {
 	return Date_fromTime(time(NULL));
 }
