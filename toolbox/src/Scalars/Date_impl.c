@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 2; indent-tabs-mode: t; c-basic-offset: 2 -*- */
 //------------------------------------------------------------------
-// $Id: Date_impl.c,v 1.2 2004/05/13 22:07:05 plg Exp $
+// $Id: Date_impl.c,v 1.3 2004/05/14 15:21:51 plg Exp $
 //------------------------------------------------------------------
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -27,6 +27,7 @@
 #define BUILD
 #endif
 */
+#include <string.h>
 
 #include "Date_impl.h"
 #include "Memory.h"
@@ -36,12 +37,14 @@
 #include "Serialisable_interface.h"
 
 
-static void   * Date_free    (Date_t This);
-static Date_t   Date_clone   (Date_t This);
-static void     Date_dump    (Date_t This, int level);
-static Date_t   Date_clear   (Date_t This);
-static int      Date_toInt   (Date_t This);
-static char   * Date_toStr   (Date_t This);
+static void   * Date_free       (Date_t This);
+static Date_t   Date_clone      (Date_t This);
+static void     Date_dump       (Date_t This, int level);
+static Date_t   Date_clear      (Date_t This);
+static int      Date_toInt      (Date_t This);
+static char   * Date_toStr      (Date_t This);
+static Date_t   Date_unmarshall (XmlElt_t xml_entity);
+static void     Date_marshall   (String_t marshalled, String_t S, int level);
 
 
 void setup_Date_once(int OID);
@@ -60,6 +63,8 @@ void __build_date_once(int OID) {
 	tb_registerMethod(OID, OM_DUMP,                   Date_dump);
 	tb_registerMethod(OID, OM_CLEAR,                  Date_clear);
 
+	tb_registerMethod(OID, OM_STRINGIFY,              Date_toStr);
+
 	tb_implementsInterface(OID, "C_Castable", 
 												 &__c_castable_build_once, build_c_castable_once);
 	
@@ -69,8 +74,8 @@ void __build_date_once(int OID) {
 	tb_implementsInterface(OID, "Serialisable", 
 												 &__serialisable_build_once, build_serialisable_once);
 
-/* 	tb_registerMethod(OID, OM_MARSHALL,     Date_marshall); */
-/* 	tb_registerMethod(OID, OM_UNMARSHALL,   Date_unmarshall); */
+	tb_registerMethod(OID, OM_MARSHALL,     Date_marshall); 
+	tb_registerMethod(OID, OM_UNMARSHALL,   Date_unmarshall); 
 
 }
 
@@ -179,4 +184,30 @@ static int Date_toInt(Date_t This) {
 		return m->absolute;
 	}
 	return 0;
+}
+
+
+//<dateTime.iso8601>20040514T12:25:58</dateTime.iso8601>
+void Date_marshall(String_t marshalled, String_t S, int level) {
+	char indent[level+1];
+	Date_members_t m = XDate(S);
+	memset(indent, ' ', level);
+	indent[level] = 0;
+
+	tb_StrAdd(marshalled, -1, "%s<dateTime.iso8601>%s</dateTime.iso8601>\n", 
+						indent, (char *)m->string);
+}
+
+Date_t Date_unmarshall(XmlElt_t xml_entity) {
+	Date_t D = NULL;
+	Vector_t V;
+	if(! streq(S2sz(XELT_getName(xml_entity)), "dateTime.iso8601")) {
+		tb_error("tb_string_unmarshall: not a date Elmt\n");
+		return NULL;
+	}
+	if((V = XELT_getChildren(xml_entity)) != NULL &&
+		 tb_getSize(V) >0) {
+		D = tb_Date(tb_toStr(XELT_getText(tb_Get(V, 0))));
+	} 
+	return D;
 }
