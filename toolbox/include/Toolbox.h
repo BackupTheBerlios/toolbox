@@ -1,5 +1,5 @@
 //============================================================
-// 	$Id: Toolbox.h,v 1.3 2004/05/19 15:13:54 plg Exp $
+// 	$Id: Toolbox.h,v 1.4 2004/05/24 16:37:51 plg Exp $
 //============================================================
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -132,7 +132,13 @@ enum Retcode
 typedef enum Retcode    retcode_t;
 
 
-
+enum cmp_retval {
+	TB_CMP_ERR = TB_ERR,
+	TB_CMP_IS_LOWER = -1,
+	TB_CMP_IS_EQUAL = 0,
+	TB_CMP_IS_GREATER = 1,
+};
+typedef enum cmp_retval cmp_retval_t;
 
 // ---------------- KTypes -----------------
 union _container_key
@@ -438,12 +444,14 @@ uint          tb_isA            (tb_Object_t obj);
 int           tb_getSize        (tb_Object_t obj);
 tb_Object_t   tb_Clear          (tb_Object_t to);
 void          tb_Dump           (tb_Object_t obj);
-char        * tb_Stringify      (tb_Object_t O);
+String_t      tb_Stringify      (tb_Object_t O);
 char        * tb_toStr          (tb_Object_t obj, ...); 
 int           tb_toInt          (tb_Object_t to, ...);
 tb_Object_t   tb_unMarshall     (String_t xml_element);
 tb_Object_t   tb_XmlunMarshall  (XmlElt_t X);
 String_t      tb_Marshall       (tb_Object_t O);
+
+cmp_retval_t  tb_Compare        (tb_Object_t O1, tb_Object_t O2);
 
 int           tb_EncodeBase64   (void *data, int size, char **str);
 int           tb_DecodeBase64   (char *str, void **data);
@@ -537,6 +545,9 @@ String_t  tb_StrSub                  (String_t  S, int start, int len);
 retcode_t tb_StrRepl                 (String_t S, char *search, char *replace);
 String_t  tb_Join                    (Vector_t V, char *delim);
 
+String_t  tb_StrQuote                (String_t S);
+String_t  tb_StrUnQuote              (String_t S);
+
 // tokenize flags
 #define TK_KEEP_BLANKS       0x5001 // toolbox misc add : store empty tokens
 #define TK_ESC_QUOTES        0x5002 // toolbox misc add : preserve quoted strings
@@ -558,6 +569,8 @@ int        strsz           (char *s); //FIXME: to be deprecated
 // constructors
 Date_t       tb_Date           (char *iso8601);
 Date_t       Date_new          (char *iso8601);
+Date_t       Date_fromTime     (time_t Tt);
+Date_t       DateNow           ();
 // manipulators (change self) 
 retcode_t    Dt_setAbsolute    (Date_t T, time_t val);
 retcode_t    Dt_setBrokenDown  (Date_t T, struct tm *val);
@@ -566,6 +579,8 @@ time_t       Dt_getAbsolute    (Date_t T);
 struct tm  * Dt_getBrokenDown  (Date_t T, struct tm *val);
 int          tb_DateCmp        (Date_t Dt1, Date_t Dt2);
 time_t       iso8601_to_time   (char *iso8601);
+
+
 
 // ---------Vector_t Methods------------------------------------------
 

@@ -1,5 +1,5 @@
 //------------------------------------------------------------------
-// $Id: Num.c,v 1.2 2004/05/14 15:21:14 plg Exp $
+// $Id: Num.c,v 1.3 2004/05/24 16:37:53 plg Exp $
 //------------------------------------------------------------------
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -46,14 +46,17 @@ inline num_members_t XNum(Num_t N) {
 	return (num_members_t)((__members_t)tb_getMembers(N, TB_NUM))->instance;
 }
 
-static Num_t   tb_num_new          (int val);
-static void *  tb_num_free         (Num_t N);
-static Num_t   tb_num_clone        (Num_t N);
-static Num_t   tb_num_clear        (Num_t N);
-static int     tb_num_getsize      (Num_t N);
-static void    tb_num_dump         (Num_t N, int level) ;
-static void    tb_num_marshall     (String_t marshalled, Raw_t R, int level) ;
-static Num_t   tb_num_unmarshall   (XmlElt_t xml_entity);
+static Num_t        tb_num_new          (int val);
+static void *       tb_num_free         (Num_t N);
+static Num_t        tb_num_clone        (Num_t N);
+static Num_t        tb_num_clear        (Num_t N);
+static int          tb_num_getsize      (Num_t N);
+static void         tb_num_dump         (Num_t N, int level) ;
+static void         tb_num_marshall     (String_t marshalled, Raw_t R, int level) ;
+static Num_t        tb_num_unmarshall   (XmlElt_t xml_entity);
+static String_t     tb_num_stringify    (Num_t N);
+static cmp_retval_t tb_num_compare      (Num_t N1, Num_t N2);
+
 
 void __build_num_once(int OID) {
 	tb_registerMethod(OID, OM_NEW,          tb_num_new);
@@ -62,8 +65,10 @@ void __build_num_once(int OID) {
 	tb_registerMethod(OID, OM_CLONE,        tb_num_clone);
 	tb_registerMethod(OID, OM_DUMP,         tb_num_dump);
 	tb_registerMethod(OID, OM_CLEAR,        tb_num_clear);
+	tb_registerMethod(OID, OM_COMPARE,      tb_num_compare);
 
-	tb_registerMethod(OID, OM_STRINGIFY,    N2sz);
+	//	tb_registerMethod(OID, OM_STRINGIFY,    N2sz);
+	tb_registerMethod(OID, OM_STRINGIFY,    tb_num_stringify);
 
 	tb_implementsInterface(OID, "C_Castable", 
 												 &__c_castable_build_once, build_c_castable_once);
@@ -122,6 +127,15 @@ Num_t tb_NumSet(Num_t N, int val) {
 	snprintf(m->strbuff, 20, "%d", val);
 
 	return N;
+}
+
+static cmp_retval_t tb_num_compare(Num_t N1, Num_t N2) {
+	if(XNum(N1)->value == XNum(N2)->value) return TB_CMP_IS_EQUAL;
+	return (XNum(N1)->value > XNum(N2)->value) ? TB_CMP_IS_GREATER : TB_CMP_IS_LOWER;
+}
+
+static String_t tb_num_stringify(Num_t N) {
+	return tb_String("%s", N2sz(N));
 }
 
 char *N2sz(Num_t N) {

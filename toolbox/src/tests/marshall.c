@@ -1,4 +1,4 @@
-// $Id: marshall.c,v 1.3 2004/05/14 15:23:43 plg Exp $
+// $Id: marshall.c,v 1.4 2004/05/24 16:37:53 plg Exp $
 
 #include <string.h>
 #include <unistd.h>
@@ -165,8 +165,15 @@ int mixed_test() {
 
 	tb_Dump(U);
 
-	fprintf(stderr, "Stringified:\n%s\n", tb_Stringify(H));
+	tb_Free(M);
 
+	tb_profile("stringification\n");
+
+	M = tb_Stringify(H);
+
+	fprintf(stderr, "Stringified:\n%s\n", tb_toStr(M));
+
+	tb_Free(M);
 
 
 

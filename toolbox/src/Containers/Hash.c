@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 2; indent-tabs-mode: t; c-basic-offset: 2 -*- */
 //=======================================================
-// $Id: Hash.c,v 1.1 2004/05/12 22:04:50 plg Exp $
+// $Id: Hash.c,v 1.2 2004/05/24 16:37:52 plg Exp $
 //=======================================================
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -69,7 +69,7 @@
 
 #include "tb_global.h"
 #include "Toolbox.h"
-#include "Hash_impl.h"
+#include "Hash.h"
 #include "tb_ClassBuilder.h"
 #include "Memory.h"
 #include "Error.h"
@@ -80,7 +80,8 @@
 
 Hash_t dbg_tb_hash(char *func, char *file, int line) {
 	set_tb_mdbg(func, file, line);
-	return tb_Hash();
+	//	return tb_Hash();
+	return tb_hash_new_default();
 }
 
 /**
@@ -91,14 +92,18 @@ Hash_t dbg_tb_hash(char *func, char *file, int line) {
  * \sa Container, tb_HashX
  */
 Hash_t tb_Hash() {
+	/*
 	tb_Object_t (*p)(tb_Object_t, int, int);	
 	pthread_once(&__class_registry_init_once, tb_classRegisterInit);
 	p = __getMethod(TB_HASH, OM_NEW);
 	return p(tb_newParent(TB_HASH), KT_STRING, 0 );
+	*/
+	return tb_hash_new_default();
 }
 
 Hash_t dbg_tb_hashx(char *func, char *file, int line, int key_type, int allow_duplicates) {
 	set_tb_mdbg(func, file, line);
+	//	return tb_HashX(key_type, allow_duplicates);
 	return tb_HashX(key_type, allow_duplicates);
 }
 
@@ -118,12 +123,19 @@ Hash_t dbg_tb_hashx(char *func, char *file, int line, int key_type, int allow_du
  * \sa Container, Ktypes.h
  */
 Hash_t tb_HashX(int key_type, int allow_duplicates) {
+	/*
 	tb_Object_t (*p)(tb_Object_t, int, int);	
 	pthread_once(&__class_registry_init_once, tb_classRegisterInit);
 	if( kt_exists(key_type)) {
 		p = __getMethod(TB_HASH, OM_NEW);
 		return p(tb_newParent(TB_HASH), key_type, allow_duplicates );
 	} 
+	tb_error("tb_HashX: unknown/unregistered key type %d\n", key_type);
+	return NULL;
+	*/
+	if( kt_exists(key_type)) {
+		return tb_hash_new(key_type, allow_duplicates);
+	}
 	tb_error("tb_HashX: unknown/unregistered key type %d\n", key_type);
 	return NULL;
 }

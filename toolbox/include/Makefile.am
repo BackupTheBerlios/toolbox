@@ -10,6 +10,7 @@ include_HEADERS = Toolbox.h   \
 	Scalars.h                   \
 	Containers.h                \
 	iterators.h                 \
+	Hash.h                      \
 	Serialisable_interface.h    \
 	Iterable_interface.h        \
 	C_Castable_interface.h      

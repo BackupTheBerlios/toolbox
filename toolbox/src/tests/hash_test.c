@@ -1,4 +1,4 @@
-// $Id: hash_test.c,v 1.1 2004/05/12 22:05:14 plg Exp $
+// $Id: hash_test.c,v 1.2 2004/05/24 16:37:53 plg Exp $
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,7 +11,7 @@ int main(int argc, char **argv) {
 	int i;
 	char key[10];
 	
-	tb_errorlevel = TB_DEBUG;
+//	tb_errorlevel = TB_DEBUG;
 
 	while(1) {
 		H = tb_Hash();

@@ -1,5 +1,5 @@
 //======================================================
-// $Id: Vector.c,v 1.2 2004/05/14 15:23:09 plg Exp $
+// $Id: Vector.c,v 1.3 2004/05/24 16:37:52 plg Exp $
 //======================================================
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -38,14 +38,12 @@
 #include "Memory.h"
 #include "Error.h"
 
-//#define XVECTOR(A)     ((vector_extra_t )A->members->instance)
-
 inline vector_members_t XVector(Vector_t V) {
 	return (vector_members_t )((__members_t)V->members)->instance;
 }
 
 static void        tb_vector_dump         (Vector_t V, int level);
-static Vector_t    tb_vector_new          (tb_Object_t O);
+static Vector_t    tb_vector_new          ();
 static void      * tb_vector_free         (tb_Object_t O);
 static Vector_t    tb_vector_clone        (Vector_t V);
 static tb_Object_t tb_vector_clear        (Vector_t V);
@@ -56,7 +54,8 @@ static retcode_t   tb_vector_replace      (Vector_t V, tb_Object_t data, int ndx
 static retcode_t   tb_vector_insert       (Vector_t V, tb_Object_t data, int ndx);
 static retcode_t   tb_vector_remove       (Vector_t V, int ndx) ;
 
-static char      * tb_vector_stringify    (Vector_t V);
+static String_t    tb_vector_stringify   (Vector_t V);
+
 
 static void        tb_vector_marshall     (String_t marshalled, Vector_t V, int level);
 static Vector_t    tb_vector_unmarshall   (XmlElt_t xml_element);
@@ -79,7 +78,6 @@ void __build_vector_once(int OID) {
 
 	tb_registerMethod(OID, OM_NEW_ITERATOR_CTX,       v_newIterCtx);
 	tb_registerMethod(OID, OM_FREE_ITERATOR_CTX,      v_freeIterCtx);
-	//obsolete	tb_registerMethod(OID, OM_GET_ITERATOR_CTX,       v_getIterCtx);
 	tb_registerMethod(OID, OM_GONEXT,                 v_goNext);
 	tb_registerMethod(OID, OM_GOPREV,                 v_goPrev);
 	tb_registerMethod(OID, OM_GOFIRST,                v_goFirst);
@@ -105,7 +103,7 @@ void __build_vector_once(int OID) {
 Vector_t dbg_tb_vector(char *func, char *file, int line) {
 	set_tb_mdbg(func, file, line);
 	pthread_once(&__class_registry_init_once, tb_classRegisterInit);
-	return tb_vector_new(tb_newParent(TB_VECTOR));
+	return tb_vector_new();
 }
 
 
@@ -133,15 +131,21 @@ Vector_t dbg_tb_vector(char *func, char *file, int line) {
 */
 Vector_t tb_Vector() {
 	pthread_once(&__class_registry_init_once, tb_classRegisterInit);
-	return tb_vector_new(tb_newParent(TB_VECTOR));
+	return tb_vector_new();
 }
 
 static int tb_vector_getsize(Vector_t V) {
 	return XVector(V)->size;
 }
 
-static Vector_t tb_vector_new(tb_Object_t This) {
+static Vector_t tb_vector_new() {
+	Vector_t This;
 	vector_members_t m;
+
+	pthread_once(&__class_registry_init_once, tb_classRegisterInit);
+
+	This = tb_newParent(TB_VECTOR);
+
 	This->isA   = TB_VECTOR;
 	This->members->instance = (vector_members_t)tb_xcalloc(1, sizeof(struct vector_members));
 	m = This->members->instance;
@@ -149,8 +153,6 @@ static Vector_t tb_vector_new(tb_Object_t This) {
 	m->start_sz = m->nb_slots = VECTOR_DEFAULT_START;
 	m->step_sz  = VECTOR_DEFAULT_STEP;
   m->data = tb_xcalloc(1, (m->nb_slots * sizeof(tb_Object_t))); 
-	m->Stringified = tb_String(NULL);
-	TB_DOCK(m->Stringified);
 
 	if(fm->dbg) fm_addObject(This);
 
@@ -165,8 +167,6 @@ static void *tb_vector_free(Vector_t V) {
 		TB_UNDOCK(m->data[i]);
 		tb_Free(m->data[i]);
 	}
-	TB_UNDOCK(m->Stringified);
-	tb_Free(m->Stringified);
 	tb_xfree(m->data);
 	tb_freeMembers(V);
 	fm_fastfree_off();
@@ -840,28 +840,31 @@ Vector_t tb_Reverse(Vector_t V) {
 	return NULL;
 }
 
-static char *tb_vector_stringify(Vector_t V) {
+
+
+static String_t tb_vector_stringify(Vector_t V) {
 	int i, sz;
 	vector_members_t m = XVector(V);
-	tb_Clear(m->Stringified);
+	String_t str = tb_String(NULL);
 	sz = m->size;
 	if(m->size == 0) {
-		tb_StrAdd(m->Stringified, -1,	"()");
+		tb_StrAdd(str, -1,	"()");
 	} else {
-		m->Stringified = tb_String("(");
+		tb_StrAdd(str, -1,	"(");
 		for(i = 0; i<sz; i++) {
 			void *p = tb_getMethod(m->data[i], OM_STRINGIFY);
 			if(p) {
-				char *s =  ((char *(*)(tb_Object_t))p)(m->data[i]);
-				tb_StrAdd(m->Stringified, -1,	"%s", s);
+				String_t Rez =  ((String_t(*)(tb_Object_t))p)(m->data[i]);
+				tb_StrAdd(str, -1,	"%S", Rez);
+				tb_Free(Rez);
 				if(i<sz-1) {
-					tb_StrAdd(m->Stringified, -1,	", ");
+					tb_StrAdd(str, -1,	", ");
 				}
 			}
 		}
-		tb_StrAdd(m->Stringified, -1, ")");
+		tb_StrAdd(str, -1, ")");
 	}
-	return tb_toStr(m->Stringified);
+	return str;
 }
 
 

@@ -1,4 +1,4 @@
-// $Id: string_test.c,v 1.1 2004/05/12 22:05:14 plg Exp $
+// $Id: string_test.c,v 1.2 2004/05/24 16:37:53 plg Exp $
 #ifdef __BUILD
 #undef __BUILD
 #endif
@@ -427,6 +427,15 @@ int main(int argc, char **argv) {
 
 
 	tb_profile("TB_ERR is now :%d\n", TB_ERR);
+
+
+	S = tb_String("%s", "he said \"hello world\" and went.");
+
+	tb_warn("vanilla string: <%S>\n", S);
+	tb_warn("quoted string: <%S>\n", tb_StrQuote(S));
+	tb_warn("unquoted string: <%S>\n", tb_StrUnQuote(S));
+
+	tb_Free(S);
 	
 	return 0;
 }

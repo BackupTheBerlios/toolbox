@@ -1,5 +1,5 @@
 // ===============================================================================
-// $Id: Objects.c,v 1.2 2004/05/14 15:22:38 plg Exp $
+// $Id: Objects.c,v 1.3 2004/05/24 16:37:52 plg Exp $
 // ===============================================================================
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -79,6 +79,7 @@ int OM_GETSIZE;
 int	OM_CLONE;
 int	OM_DUMP;
 int	OM_CLEAR;
+int	OM_COMPARE;
 int	OM_INSPECT; // NYI -> to be used to allow self inspection and reflection
 int	OM_STRINGIFY;
 
@@ -86,7 +87,7 @@ int	OM_STRINGIFY;
 static tb_Object_t   tb_object_new   (void);
 static void        * tb_object_free  (tb_Object_t O);
 static void          tb_object_dump  (tb_Object_t O, int level);
-char               * tb_object_stringify(tb_Object_t T);
+String_t             tb_object_stringify(tb_Object_t T);
 
 inline const char   *tb_nameOf       (int Oid)    { return __class_name_of(Oid); }
 
@@ -158,6 +159,7 @@ void __build_object_once(int OID) {
 	OM_CLONE       = tb_registerNew_ClassMethod("Clone",        OID);
 	OM_DUMP        = tb_registerNew_ClassMethod("Dump",         OID);
 	OM_CLEAR       = tb_registerNew_ClassMethod("Clear",        OID);
+	OM_COMPARE     = tb_registerNew_ClassMethod("Compare",      OID);
 	OM_INSPECT     = tb_registerNew_ClassMethod("Inspect",      OID);
 
 	OM_STRINGIFY   = tb_registerNew_ClassMethod("Stringify",    OID);
@@ -209,8 +211,8 @@ void tb_freeMembers(tb_Object_t This) {
 tb_Object_t tb_newParent(int child) {
 	void *p;
 	tb_Object_t This;
-	p = __getMethod( __parent_of(child), OM_NEW );
-	if( p != NULL ) {
+	p = __getMethod( __parent_of(child), OM_NEW);
+	if(p != NULL) {
 		__members_t new = (__members_t)tb_xcalloc(1, sizeof(struct __members));
 		This = ((tb_Object_t (*)())p)();
 		new->parent  = This->members;
@@ -313,8 +315,8 @@ tb_Object_t tb_Clone(tb_Object_t T) {
   return Clone;
 }
 
-char *tb_object_stringify(tb_Object_t T) {
-	return (char *)tb_nameOf(tb_isA(T));
+String_t tb_object_stringify(tb_Object_t T) {
+	return tb_String("%s@%X", tb_nameOf(tb_isA(T)), T);
 }
 
 
@@ -329,12 +331,12 @@ char *tb_object_stringify(tb_Object_t T) {
  * @see tb_Object_t 
  * @see tb_Free, tb_Clear, tb_Clone, tb_Alias, tb_isA, tb_Dump, tb_getSize, tb_toStr, tb_toInt , tb_Marshall, tb_unMarshall
 */
-char *tb_Stringify(tb_Object_t O) {
+String_t tb_Stringify(tb_Object_t O) {
 	void *p;
 	if(! tb_valid(O, TB_OBJECT, __FUNCTION__)) return NULL;
 
 	if((p = tb_getMethod(O, OM_STRINGIFY))) {
-		return ((char *(*)(tb_Object_t))p)(O); 
+		return ((String_t(*)(tb_Object_t))p)(O); 
 	} else {
 		set_tb_errno(TB_ERR_NO_SUCH_METHOD);
 		tb_error("%p (%d) [no dump method]\n", O, O->isA);
@@ -363,6 +365,26 @@ void tb_Dump(tb_Object_t O) {
 		set_tb_errno(TB_ERR_NO_SUCH_METHOD);
 		tb_error("%p (%d) [no dump method]\n", O, O->isA);
 	}
+}
+
+
+cmp_retval_t tb_Compare(tb_Object_t O1, tb_Object_t O2) {
+	void *p;
+	if(tb_valid(O1, TB_OBJECT, __FUNCTION__) &&
+		 tb_valid(O2, TB_OBJECT, __FUNCTION__)) {
+		
+		if(tb_isA(O1) == tb_isA(O2)) {
+			if((p = tb_getMethod(O1, OM_COMPARE))) {
+				return ((cmp_retval_t(*)(tb_Object_t, tb_Object_t))p)(O1, O2); 
+			} else {
+				set_tb_errno(TB_ERR_NO_SUCH_METHOD);
+				tb_error("%p (%d) [no compare method]\n", O1, O1->isA);
+			}
+		} else {
+			tb_error("tb_Compare: objects type mismatch\n");
+		}
+	}
+	return TB_CMP_ERR;
 }
 
 

@@ -16,13 +16,15 @@
 #=====================================================================================
 #
 $author = "Paul L. Gatille <gatille\@audemat-aztec.com>";
-$licence = "Copyright (c) 2004, Audemat-Aztec http://audemat-aztec.com";
+#$licence = "Copyright (c) 2004, Audemat-Aztec http://audemat-aztec.com";
+$licence = "Copyright (c) 2004, Paul Gatille";
 
 %Members = (
-						"signatures", "Hash_t",
+#						"Default", "tb_Object_t",
+						"Templates", "Hash_t",
 	);
 
-$fnc_prefix = "XRpc_";
+$fnc_prefix = "Rec_";
 #
 #=====================================================================================
 
@@ -43,7 +45,7 @@ if(defined $ARGV[2]) {
 	$author = $ARGV[2];
 }
 
-$cvstag = "\$Id: new_class.pl,v 1.1 2004/05/12 22:05:20 plg Exp $";
+$cvstag = "\$Id: new_class.pl,v 1.2 2004/05/24 16:37:53 plg Exp $";
 
 $class_c = $class_name . ".c";
 $class_h = $class_name . ".h";

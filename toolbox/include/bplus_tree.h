@@ -1,5 +1,5 @@
 //----------------------------------------------------------------------------------
-// $Id: bplus_tree.h,v 1.1 2004/05/12 22:04:48 plg Exp $
+// $Id: bplus_tree.h,v 1.2 2004/05/24 16:37:51 plg Exp $
 //----------------------------------------------------------------------------------
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -68,7 +68,6 @@ struct bpt_dupes {
 typedef struct bpt_dupes *bpt_dupes_t;
 
 // public
-Dict_t       tb_dict_new         (tb_Object_t O, int keytype, int allow_dupes);
 void *       tb_dict_free        (Dict_t D);
 int          tb_dict_getsize     (Dict_t D);
 void         tb_dict_dump        (Dict_t D, int level);

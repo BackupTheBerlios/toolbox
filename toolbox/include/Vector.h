@@ -1,5 +1,5 @@
 //------------------------------------------------------------------
-// $Id: Vector.h,v 1.2 2004/05/19 15:13:54 plg Exp $
+// $Id: Vector.h,v 1.3 2004/05/24 16:37:51 plg Exp $
 //------------------------------------------------------------------
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -32,7 +32,7 @@ typedef struct vIter *vIter_t;
 
 struct vector_members {
 	tb_Object_t  * data;
-	String_t       Stringified;
+	//	String_t       Stringified;
 	int            size;
   int            nb_slots;
   int            frozen;

@@ -1,5 +1,5 @@
 //===================================================
-// $Id: bplus_tree.c,v 1.1 2004/05/12 22:04:50 plg Exp $
+// $Id: bplus_tree.c,v 1.2 2004/05/24 16:37:52 plg Exp $
 //===================================================
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -61,7 +61,7 @@ static void                dump_tree_mult      (bpt_node_t N, int level, int kt)
 
 
 void __build_dict_once(int OID) {
-	tb_registerMethod(OID, OM_NEW,                    tb_dict_new);
+	tb_registerMethod(OID, OM_NEW,                    tb_dict_new_default);
 	tb_registerMethod(OID, OM_FREE,                   tb_dict_free);
 	tb_registerMethod(OID, OM_GETSIZE,                tb_dict_getsize);
 	//CODE-ME:	registerNewMethod(TB_DICT, OM_CLONE,        tb_dict_clone);
@@ -88,8 +88,18 @@ void __build_dict_once(int OID) {
 	tb_registerMethod(OID, OM_CURVAL,                 bpt_curVal);
 }
 
-Dict_t tb_dict_new(tb_Object_t O, int keytype, int allow_dupes) {
-	if( kt_exists(keytype)) {
+Dict_t tb_dict_new_default() {
+	return tb_dict_new(KT_STRING, 0);
+}
+
+Dict_t tb_dict_new(int keytype, int allow_dupes) {
+	Dict_t O;
+	pthread_once(&__class_registry_init_once, tb_classRegisterInit);
+
+	if(kt_exists(keytype)) {
+
+		O = tb_newParent(TB_DICT);
+
 		O->isA   = TB_DICT;
 		O->members->instance            = tb_xcalloc(1, sizeof(struct dict_extra));
 		((struct dict_extra *)O->members->instance)->BplusTree = bpt_newTree(10, allow_dupes, keytype);
@@ -99,7 +109,6 @@ Dict_t tb_dict_new(tb_Object_t O, int keytype, int allow_dupes) {
 		return O;
 	}
 	tb_error("unknown/unregistered key type %d\n", keytype);
-	tb_Free(O);
 	return NULL;
 }
 

@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 2; indent-tabs-mode: t; c-basic-offset: 2 -*- */
 //------------------------------------------------------------------
-// $Id: Date.c,v 1.2 2004/05/13 22:07:04 plg Exp $
+// $Id: Date.c,v 1.3 2004/05/24 16:37:52 plg Exp $
 //------------------------------------------------------------------
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -156,3 +156,6 @@ int tb_DateCmp(Date_t Dt1, Date_t Dt2) {
 	return TB_ERR;
 }
 
+Date_t DateNow() {
+	return Date_fromTime(time(NULL));
+}

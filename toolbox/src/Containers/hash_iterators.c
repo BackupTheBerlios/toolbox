@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 2; indent-tabs-mode: t; c-basic-offset: 2 -*- */
 //======================================================
-// $Id: hash_iterators.c,v 1.1 2004/05/12 22:04:50 plg Exp $
+// $Id: hash_iterators.c,v 1.2 2004/05/24 16:37:52 plg Exp $
 //======================================================
 
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
@@ -23,7 +23,7 @@
 #include "Containers.h"
 #include "Objects.h"
 #include "Toolbox.h"
-#include "Hash_impl.h"
+#include "Hash.h"
 #include "Memory.h"
 #include "Error.h"
 #include "iterators.h"

@@ -1,5 +1,5 @@
 //------------------------------------------------------------------
-// $Id: String.c,v 1.2 2004/05/14 15:21:14 plg Exp $
+// $Id: String.c,v 1.3 2004/05/24 16:37:53 plg Exp $
 //------------------------------------------------------------------
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -47,11 +47,13 @@ inline string_members_t XStr(String_t This) {
 	return (string_members_t)((__members_t)tb_getMembers(This, TB_STRING))->instance;
 }
 
-static void   * tb_string_free       (String_t S);
-static String_t tb_string_clone      (String_t S);
-static String_t tb_string_clear      (String_t S);
-static void     tb_string_dump       (String_t S, int level);
-static int      tb_string_getsize    (String_t S);
+static void       * tb_string_free          (String_t S);
+static String_t     tb_string_clone         (String_t S);
+static String_t     tb_string_clear         (String_t S);
+static void         tb_string_dump          (String_t S, int level);
+static int          tb_string_getsize       (String_t S);
+static String_t     tb_string_stringify     (String_t S);
+static cmp_retval_t tb_string_compare       (String_t S1, String_t S2);
 
 void __build_string_once(int OID) {
 	tb_registerMethod(OID, OM_NEW,          tb_string_new);
@@ -60,8 +62,10 @@ void __build_string_once(int OID) {
 	tb_registerMethod(OID, OM_CLONE,        tb_string_clone);
 	tb_registerMethod(OID, OM_DUMP,         tb_string_dump);
 	tb_registerMethod(OID, OM_CLEAR,        tb_string_clear);
+	tb_registerMethod(OID, OM_COMPARE,      tb_string_compare);
 
-	tb_registerMethod(OID, OM_STRINGIFY,    S2sz); // fixme: should be escaped ("\"")
+	//	tb_registerMethod(OID, OM_STRINGIFY,    S2sz); // fixme: should be escaped ("\"")
+	tb_registerMethod(OID, OM_STRINGIFY,    tb_string_stringify);
 
 	tb_implementsInterface(OID, "C_Castable", 
 												 &__c_castable_build_once, build_c_castable_once);
@@ -97,10 +101,39 @@ String_t dbg_tb_string_new(char *func, char *file, int line, int len, char *data
  */
 inline char *S2sz(String_t S) {
 	if(tb_valid(S, TB_STRING, __FUNCTION__)) {
-	return (char *)XStr(S)->data;
+		return (char *)XStr(S)->data;
 	}
 	return NULL;
 }
+
+
+
+static String_t tb_string_stringify(String_t S) {
+	return tb_StrQuote(tb_Clone(S));
+}
+
+String_t tb_StrQuote(String_t S) {
+	if(tb_valid(S, TB_STRING, __FUNCTION__)) {
+		tb_Sed("\"", "\\\"", S, PCRE_MULTI|PCRE_DOTALL);
+		tb_StrAdd(S, 0, "\"");
+		tb_StrAdd(S, -1, "\"");
+		return S;
+	}
+	return NULL;
+}
+
+String_t tb_StrUnQuote(String_t S) {
+	if(tb_valid(S, TB_STRING, __FUNCTION__)) {
+		tb_Sed("^\"", "", S, PCRE_MULTI|PCRE_DOTALL);
+		tb_Sed("\"$", "", S, PCRE_MULTI|PCRE_DOTALL);
+
+		tb_Sed("\\\\\"", "\"", S, PCRE_MULTI|PCRE_DOTALL);
+		return S;
+	}
+	return NULL;
+}
+
+
 
 
 /**	String_t to int typecaster
@@ -1304,6 +1337,15 @@ int tb_StrCmp(String_t S, char *match, int case_sensitive) {
 	}
  return TB_ERR;
 }
+
+static cmp_retval_t tb_string_compare(String_t S1, String_t S2) {
+	string_members_t m1 = XStr(S1);
+	string_members_t m2 = XStr(S2);
+	int rez = strcmp(m1->data, m2->data);
+	if(rez == 0) return TB_CMP_IS_EQUAL;
+	return (rez >0) ? TB_CMP_IS_GREATER : TB_CMP_IS_LOWER;
+}
+
 
 /** Check if String_t equals char *string with strict case sensivity
  *

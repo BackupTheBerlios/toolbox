@@ -1,4 +1,4 @@
-// $Id: Dict.h,v 1.1 2004/05/12 22:04:48 plg Exp $
+// $Id: Dict.h,v 1.2 2004/05/24 16:37:50 plg Exp $
 //==========================================================
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -31,7 +31,7 @@ cp_key_t cp_str(void *n);
 
 
 
-struct dict_extra {
+struct dict_extra { //FIXME: remove those
 	//	enum tree_type;
 	//	union internal {
 	void *BplusTree;
@@ -39,6 +39,11 @@ struct dict_extra {
 	//	}
 };
 typedef struct dict_extra *dict_extra_t;
+
+// Constructors
+
+Dict_t tb_dict_new         (int KT, int allow_dupes);
+Dict_t tb_dict_new_default ();
 
 
 #endif

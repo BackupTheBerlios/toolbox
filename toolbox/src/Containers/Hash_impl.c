@@ -1,5 +1,5 @@
 //=======================================================
-// $Id: Hash_impl.c,v 1.2 2004/05/14 15:23:09 plg Exp $
+// $Id: Hash_impl.c,v 1.3 2004/05/24 16:37:52 plg Exp $
 //=======================================================
 /* Copyright (c) 1999-2004, Paul L. Gatille. All rights reserved.
  *
@@ -26,7 +26,7 @@
 
 #include "tb_global.h"
 #include "Toolbox.h"
-#include "Hash_impl.h"
+#include "Hash.h"
 
 #include "tb_ClassBuilder.h"
 #include "Serialisable_interface.h"
@@ -51,8 +51,6 @@ static unsigned long hash_macrc32 (register unsigned char *key, register size_t 
 static unsigned long hash_glib    (register unsigned char *key, register size_t len);
 */
 
-
-static Hash_t        tb_hash_new     (tb_Object_t O, int key_type, int allow_duplicates);
 static void        * tb_hash_free    (tb_Object_t O);
 static tb_Object_t   tb_hash_clear   (tb_Object_t O);
 static int           tb_hash_getsize (tb_Object_t O);
@@ -71,11 +69,11 @@ static void          tb_node_dump    (tb_hash_node_t O, int level, int kt);
 static tb_hash_node_t tb_node_new    (tb_Key_t key, tb_Object_t value, int kt, int hasDups);
 static void          tb_node_free    (tb_hash_node_t N, int kt);
 
-static char        * tb_hash_stringify(Hash_t O);
-
+//static char        * tb_hash_stringify(Hash_t O);
+static String_t      tb_hash_stringify(Hash_t O);
 
 void __build_hash_once(int OID) {
-	tb_registerMethod(OID, OM_NEW,                    tb_hash_new);
+	tb_registerMethod(OID, OM_NEW,                    tb_hash_new_default);
 	tb_registerMethod(OID, OM_FREE,                   tb_hash_free);
 	tb_registerMethod(OID, OM_GETSIZE,                tb_hash_getsize);
 	tb_registerMethod(OID, OM_CLONE,                  tb_hash_clone);
@@ -149,16 +147,26 @@ static int tb_hash_getsize(Hash_t H) {
 	return XHASH(H)->size;
 }
 
-static Hash_t tb_hash_new(tb_Object_t O, int key_type, int allow_duplicates) {
-  hash_extra_t members = (hash_extra_t)tb_xcalloc(1, sizeof(struct hash_extra));
-	O->isA   = TB_HASH;
-  O->members->instance = members;
+
+Hash_t tb_hash_new_default() {
+	return  tb_hash_new(KT_STRING, 0);
+}
+
+Hash_t tb_hash_new(int key_type, int allow_duplicates) {
+	tb_Object_t This;
+  hash_extra_t members;
+
+	pthread_once(&__class_registry_init_once, tb_classRegisterInit);
+
+	This = tb_newParent(TB_HASH);
+	This->isA   = TB_HASH;
+
+	members = (hash_extra_t)tb_xcalloc(1, sizeof(struct hash_extra));
+  This->members->instance = members;
 
 	members->buckets  = HASH_MIN_SIZE;
 	members->kt    = key_type;
 	members->allow_duplicates = allow_duplicates;
-	members->Stringified = tb_String(NULL);
-	TB_DOCK(members->Stringified);
 
 	switch(key_type) {
 	case KT_STRING:
@@ -174,9 +182,9 @@ static Hash_t tb_hash_new(tb_Object_t O, int key_type, int allow_duplicates) {
 	}
 
 	members->nodes = tb_xcalloc((size_t)members->buckets, sizeof(struct tb_hash_node));
-	if(fm->dbg) fm_addObject(O);
+	if(fm->dbg) fm_addObject(This);
 
-	return O;
+	return This;
 }
 
 
@@ -227,8 +235,6 @@ static void *tb_hash_free(Hash_t H) {
       tb_node_free(node, XHASH(H)->kt);
     }
   }
-	TB_DOCK(members->Stringified);
-	tb_Free(members->Stringified);
 
 	tb_freeMembers(H);
 	fm_fastfree_off();
@@ -641,7 +647,7 @@ static tb_Object_t tb_hash_take(Hash_t H, tb_Key_t key) {
 }
 
 
-
+#ifdef OBSOLETE_NOW
 static char *tb_hash_stringify(Hash_t O) {
   int           i, nb=0;
   hash_extra_t  m = XHASH(O);
@@ -673,6 +679,42 @@ static char *tb_hash_stringify(Hash_t O) {
 		tb_StrAdd(m->Stringified, -1, "}");
 	}
 	return tb_toStr(m->Stringified);
+}
+#endif
+
+static String_t tb_hash_stringify(Hash_t O) {
+  int           i, nb =0;
+  hash_extra_t  m     = XHASH(O);
+	String_t      str   = tb_String(NULL);
+
+	if(m->size == 0) {
+		tb_StrAdd(str, -1, "{}");
+	} else {
+		tb_StrAdd(str, -1, "{");
+
+		for (i = 0; i < m->buckets; i++) {
+			tb_hash_node_t node;
+			for(node = m->nodes[i]; node != NULL;) {
+				if(node) {
+					String_t(*p)(tb_Object_t) = tb_getMethod(node->value, OM_STRINGIFY);
+					if(p) {
+						char buff[64]; // fixme: may overflow
+						String_t Rez = p(node->value);
+						tb_StrAdd(str, -1, "%s=%S", 
+											kt_getK2sz(m->kt)(node->key, buff),
+											Rez);
+						tb_Free(Rez);
+						if(nb++ <m->size-1) {
+							tb_StrAdd(str, -1, ", ");
+						}
+					}
+				}
+				node = node->next;
+			}
+		}
+		tb_StrAdd(str, -1, "}");
+	}
+	return str;
 }
 
 

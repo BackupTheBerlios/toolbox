@@ -1,5 +1,5 @@
 //=======================================================
-// $Id: XmlRpc_util.c,v 1.1 2004/05/12 22:04:53 plg Exp $
+// $Id: XmlRpc_util.c,v 1.2 2004/05/24 16:37:53 plg Exp $
 //=======================================================
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -77,7 +77,80 @@ typedef int (*_p9__t)(tb_Object_t,tb_Object_t,tb_Object_t,
 								tb_Object_t,tb_Object_t,tb_Object_t,tb_Object_t,tb_Object_t,tb_Object_t);
 
 
+/**
+ * Invoke remote function, using XmlRpc specs for serialising/deserializing
+ *
+ * Called function must have been registered from both sides (client & server).
+ *
+ * Using is straightforward : 
+ *
+ * 1/ register Rpc client and server side using XRpc_registerRemoteMethod and XRpc_registerLocalMethod
+ *
+ * 2/ Open Socket_t to remote server
+ *
+ * 3/ call RPC using XRpc_sendCall, with the XmlRpc object, the open Socket_t, the remote function name (as registered), and all requiered parameters.
+ *
+ * Internally, all parameters are checked against registered signature, and serialized. They are then sent to remote part.
+ *
+ * Remote server accepts the serialized call, checks it also with it's own signature, deserialize the arguments (in other words : create new objects from their textual representation) and call the rela function. According to the return code, the remote part will send back a Fault structure, or (in case of success) will re-serialise all args marked as return values ('Out' and 'InOut' in signature) and send back to caller.
+ *
+ * Caller will then update calling parameters with the textual representation of the return values.
+ * All those steps are done transparently.
+ * 
+ * Example : 
+ *\code
+ * Client side :
+ * char remote1[] = "<Rpc methodName=\"func1\"><paramIn type=\"int\"/><paramOut type=\"string\"/></Rpc>";
+ *
+ * int main(int argc, char **argv) {
+ *	XmlRpc_t Xr  = XmlRpc();                          // new XmlRpc object 
+ *	Num_t N      = tb_Num(999);                       // define some objects matching signature
+ *	String_t S   = tb_String("totoche"); 
+ *	int rc; 
+ *	Socket_t  So = tb_Socket(TB_TCP_IP, "", 55553);   // create a socket to remote part
+ *
+ *	XRpc_registerRemoteMethod(Xr, remote1);           // register signature
+ *	tb_Connect(So, 1, 1);                             // open connection
+ *
+ *  rc = XRpc_sendCall(Xr, So, "func1", N, S)         // execute remote call
+ *
+ *	if(rc == TB_OK) {
+ *		fprintf(stderr, "Success: %s\n", tb_toStr(S));  // print return value
+ *	} else {
+ *		fprintf(stderr, "Fault [%d]\n", rc);            // something gone wrong
+ *	}
+ *  ...
+ * }
+ * \endcode
+ *
+ *\code
+ * Server side :
+ * char remote1[] = "<Rpc methodName=\"func1\"><paramIn type=\"int\"/><paramOut type=\"string\"/></Rpc>";
+ *
+ * int func1(Num_t N, String_t S) {
+ * 	tb_warn("server: func1 called with N<%d> and S<%S>\n", tb_toInt(N), S);
+ * 	tb_StrAdd(S, 0, "Hello ");
+ * 	tb_StrAdd(S, -1, " :-)");
+ *	
+ *	return TB_OK;
+ * }
+ *
+ * int main(int argc, char **argv) {
+ *	XmlRpc_t Xr  = XmlRpc();                         // create XmlRpc object
+ *	Socket_t  So = tb_Socket(TB_TCP_IP, "", 55553);  // create socket endpoint
+ *
+ *	XRpc_registerLocalMethod(Xr, remote1, func1); // register signature and local function pointer
+ *
+ *	tb_initServer(So, XRpc_receiveCall, Xr);         // prepare server to accept XmlRpc Calls
+ *
+ *	tb_Accept(So);                                   // start accpepting
+ *
+ *	return 0;                                        // that's all folks
+ * }
+ * \endcode
 
+ * @ingroup Xmlrpc
+ */
 int XRpc_sendCall(XmlRpc_t Xr, /*Uri_t Dest*/ Socket_t So, char *func, ...) {
 	int rc;
 	XmlDoc_t Sig         = XRpc_getSignature(Xr, func);
@@ -213,6 +286,16 @@ int XRpc_sendCall(XmlRpc_t Xr, /*Uri_t Dest*/ Socket_t So, char *func, ...) {
 </methodCall>
 */
 
+
+
+/**
+ * XmlRpc Server-side function
+ *
+ * This function is spawn on incoming connection on socket So. 
+ * @param So incoming RPC connection
+ * @see XRpc_senCall, tb_initSockServer 
+ * @ingroup Xmlrpc
+ */
 void XRpc_receiveCall(Socket_t So) {
 	XmlRpc_t Xr       = (XmlRpc_t)tb_getServArgs(So);
 	String_t Request  = tb_String(NULL);

@@ -1,3 +1,10 @@
+2004-05-24  Paul Gatille  <pge@xanadu>
+
+        * various: 
+	- added tb_Compare (tb_Object_t virtual method)
+	- refactored tb_Stringify to return new String_t (avoid juggling with internal representations of objects and such bogosities)
+	- fixed constructors for hash, vector and dict (to allow derivation)
+	
 2004-05-14  Paul Gatille  <pge@xanadu>
 
 	* src/Objects/Objects.c: 

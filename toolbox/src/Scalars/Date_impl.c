@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 2; indent-tabs-mode: t; c-basic-offset: 2 -*- */
 //------------------------------------------------------------------
-// $Id: Date_impl.c,v 1.3 2004/05/14 15:21:51 plg Exp $
+// $Id: Date_impl.c,v 1.4 2004/05/24 16:37:52 plg Exp $
 //------------------------------------------------------------------
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -46,6 +46,7 @@ static char   * Date_toStr      (Date_t This);
 static Date_t   Date_unmarshall (XmlElt_t xml_entity);
 static void     Date_marshall   (String_t marshalled, String_t S, int level);
 
+static String_t DateStringify   (Date_t This);
 
 void setup_Date_once(int OID);
 
@@ -63,7 +64,7 @@ void __build_date_once(int OID) {
 	tb_registerMethod(OID, OM_DUMP,                   Date_dump);
 	tb_registerMethod(OID, OM_CLEAR,                  Date_clear);
 
-	tb_registerMethod(OID, OM_STRINGIFY,              Date_toStr);
+	tb_registerMethod(OID, OM_STRINGIFY,              DateStringify);
 
 	tb_implementsInterface(OID, "C_Castable", 
 												 &__c_castable_build_once, build_c_castable_once);
@@ -135,6 +136,37 @@ Date_t Date_new(char *iso8601) {
 	return This;
 }
 
+Date_t Date_fromTime(time_t Tt) {
+	tb_Object_t This;
+	pthread_once(&__class_registry_init_once, tb_classRegisterInit);
+	Date_members_t m;
+	This =  tb_newParent(TB_DATE); 
+	
+	This->isA  = TB_DATE;
+
+	m = (Date_members_t)tb_xcalloc(1, sizeof(struct Date_members));
+	This->members->instance = m;
+
+	if((m->absolute = Tt) >0) {
+		localtime_r(&(m->absolute), &(m->broken_down));
+
+		snprintf(m->string, 20, "%d%02d%02dT%02d:%02d:%02d",
+						 m->broken_down.tm_year + 1900,
+						 m->broken_down.tm_mon,
+						 m->broken_down.tm_mday,
+						 m->broken_down.tm_hour,
+						 m->broken_down.tm_min,
+						 m->broken_down.tm_sec);
+		
+	}
+
+	if(fm->dbg) fm_addObject(This);
+
+	return This;
+}
+
+
+
 void *Date_free(Date_t Obj) {
 	fm_fastfree_on();
 
@@ -177,6 +209,11 @@ static void Date_dump(Date_t This, int level) {
 static char * Date_toStr(Date_t This) {
 	return XDate(This)->string;
 }
+
+static String_t DateStringify(Date_t This) {
+	return tb_String("%s", Date_toStr(This));
+}
+
 
 static int Date_toInt(Date_t This) {
 	if(tb_valid(This, TB_DATE, __FUNCTION__)) {

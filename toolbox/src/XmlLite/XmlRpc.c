@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 2; indent-tabs-mode: t; c-basic-offset: 2 -*- */
 //======================================================
-// $Id: XmlRpc.c,v 1.1 2004/05/12 22:04:53 plg Exp $
+// $Id: XmlRpc.c,v 1.2 2004/05/24 16:37:53 plg Exp $
 //======================================================
 
 // created on Tue May 11 23:37:45 2004 by Paul Gatille <paul.gatille\@free.fr>
@@ -23,19 +23,14 @@
  */
 
 /**
- * @defgroup XMLRPC XmlRpc_t
- * @ingroup TB_COMPOSITE
- * Class XmlRpc (extends TB_COMPOSITE, [implements interface ...])
- * description :
- *
- * ... here the header description
+ * @defgroup Xmlrpc XmlRpc_t
+ * @ingroup Composite
+ * Class XmlRpc, support XmlRpc seralisation/deserialisation (see full specs at http://www.xmlrpc.com/)
  */
 
-/* uncomment only for internal Toolbox Class 
 #ifndef __BUILD
 #define __BUILD
 #endif
-*/
 
 #include "Toolbox.h"
 #include "Memory.h"
@@ -59,6 +54,44 @@ Hash_t XRpc_getsignatures(XmlRpc_t T) {
 
 
 */
+
+
+/**
+ * Register Remote RPC (to be used in client-side)
+ *
+ * Use this function from the RPC client to register a remote function, and it's signature.
+ * 
+ * Signature format is (this isn't a DTD ;) :
+ * \code
+ * <XmlRpc name="myFunc">
+ * [<[paramIn|paramOut|paramInOut] type="int"/> ]...
+ * </XmlRpc>
+ * \endcode
+ * Params elements are either paramIn, paramOut, or paramInOut. Only 'Out' and 'InOut' parameters are sent back to caller.
+ * Param type is one of :
+ * - int
+ * - bool   [NYI]
+ * - double [NYI]
+ * - string
+ * - date
+ * - array (vector of any xmlrpc type, including arrays and structs)
+ * - struct (pairs of name, value where value is any xmlrpc type, including array and structs)
+ *
+ * All those types are mapped to Toolbox classes : 
+ * - int     -> Num_t
+ * - bool    -> [NYI]
+ * - double  -> [NYI]
+ * - string  -> String_t
+ * - date    -> Date_t
+ * - array   -> Vector_t
+ * - struct  -> Hash_t
+ * 
+ * @param This : Target storing object
+ * @param signature : xml string abiding to upper syntax
+ * @return retcode_t
+ * @see XRpc_sendCall, XRpc_receiveCall
+ * @ingroup Xmlrpc
+ */
 retcode_t   XRpc_registerRemoteMethod    (XmlRpc_t This, char *signature) {
 	if(tb_valid(This, XMLRPC_T, __FUNCTION__)) {
 		XmlDoc_t Doc = tb_XmlDoc(signature);
@@ -72,6 +105,27 @@ retcode_t   XRpc_registerRemoteMethod    (XmlRpc_t This, char *signature) {
 	return TB_KO;
 }
 
+/**
+ * Register Local RPC (to be used in server-side)
+ *
+ * Use this function from the RPC server to register a local function, and it's signature.
+ * 
+ * Signature format is (this isn't a DTD ;) :
+ * \code
+ * <XmlRpc name="myFunc">
+ * [<[paramIn|paramOut|paramInOut] type="int"/> ]...
+ * </XmlRpc>
+ * \endcode
+ * Params elements are either paramIn, paramOut, or paramInOut. Only 'Out' and 'InOut' parameters are sent back to caller.
+ *
+ * @param This : Target storing object
+ * @param signature : xml string abiding to upper syntax
+ * @param function : native function to be called. Obviously this function should exists and use the same signature (number and types of arguments) as declared in second parameter.
+ * @return retcode_t
+ *
+ * @see XRpc_sendCall, XRpc_receiveCall
+ * @ingroup Xmlrpc
+ */
 retcode_t   XRpc_registerLocalMethod     (XmlRpc_t This, char *signature, void *function) {
 	if(tb_valid(This, XMLRPC_T, __FUNCTION__)) {
 		XmlDoc_t Doc = tb_XmlDoc(signature);

@@ -1,5 +1,5 @@
 //======================================================
-// $Id: Dict.c,v 1.1 2004/05/12 22:04:50 plg Exp $
+// $Id: Dict.c,v 1.2 2004/05/24 16:37:52 plg Exp $
 //======================================================
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -45,13 +45,10 @@
 
 
 
-Dict_t tb_dict_new(tb_Object_t O, int KT, int allow_dupes);
-
 
 Dict_t dbg_tb_dict(char *func, char *file, int line, int type, int dupes_allowed) {
 	set_tb_mdbg(func, file, line);
-	pthread_once(&__class_registry_init_once, tb_classRegisterInit);
-	return tb_dict_new(tb_newParent(TB_DICT), type, dupes_allowed);
+	return tb_dict_new(type, dupes_allowed);
 }
 
 
@@ -65,7 +62,7 @@ Dict_t dbg_tb_dict(char *func, char *file, int line, int type, int dupes_allowed
  */
 Dict_t tb_Dict(int type, int dupes_allowed) {
 	pthread_once(&__class_registry_init_once, tb_classRegisterInit);
-	return tb_dict_new(tb_newParent(TB_DICT), type, dupes_allowed);
+	return tb_dict_new(type, dupes_allowed);
 }
 
 
