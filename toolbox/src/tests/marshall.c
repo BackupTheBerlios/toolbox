@@ -1,0 +1,174 @@
+// $Id: marshall.c,v 1.1 2004/05/12 22:05:14 plg Exp $
+
+#include <string.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h> 
+#include <assert.h>
+#include <stdio.h>
+#include "Toolbox.h"
+
+
+int string_test(void);
+int raw_test(void);
+int num_test(void);
+int varray_test(void);
+int hash_test(void);
+int mixed_test(void);
+
+
+int main(int argc, char **argv) {
+
+	tb_profile("string_test");
+	string_test();
+
+	tb_profile("raw_test");
+	raw_test();
+
+	tb_profile("num_test");
+	num_test();
+
+	tb_profile("varray_test");
+	varray_test();
+
+	tb_profile("hash_test");
+	hash_test();
+
+	tb_profile("mixed_test");
+	mixed_test();
+ 
+	return 0;
+}
+
+
+int string_test() {
+	String_t U, M,  S = tb_String("hello string");
+
+	tb_Dump(S);
+	
+	M = tb_Marshall( S );
+
+	fprintf(stderr, "--\n%s\n--\n", S2sz(M));
+
+ 
+	U = tb_unMarshall( M );
+
+	tb_Dump(U);
+
+	return TB_OK;
+}
+
+
+int raw_test() {
+	Raw_t U, M,  S = tb_Raw(10, "hello string");
+
+	tb_Dump(S);
+
+	M = tb_Marshall( S );
+	
+	fprintf(stderr, "--\n%s\n--\n", S2sz(M));
+
+	U = tb_unMarshall( M );
+
+	tb_Dump(U);
+
+	return TB_OK;
+}
+
+int num_test() {
+	Num_t U, M,  S = tb_Num(10);
+
+	tb_Dump(S);
+
+	M = tb_Marshall( S );
+	
+	fprintf(stderr, "--\n%s\n--\n", S2sz(M));
+
+	U = tb_unMarshall( M );
+
+	tb_Dump(U);
+
+	return TB_OK;
+}
+
+int varray_test() {
+	Varray_t U,  V = tb_Varray();
+	String_t M;
+
+	tb_Push(V, tb_String("1"));
+	tb_Push(V, tb_String("2"));
+	tb_Push(V, tb_String("3"));
+
+	tb_Dump(V);
+
+	M = tb_Marshall( V );
+	
+	fprintf(stderr, "--\n%s\n--\n", S2sz(M));
+
+	U = tb_unMarshall( M );
+
+	tb_Dump(U);
+
+	return TB_OK;
+}
+
+int hash_test() {
+	Hash_t U,  H = tb_Hash();
+	String_t M;
+
+	tb_Add(H, tb_String("1"), "un");
+	tb_Add(H, tb_String("2"), "deux");
+	tb_Add(H, tb_String("3"), "trois");
+
+	tb_Dump(H);
+
+	M = tb_Marshall( H );
+	
+	fprintf(stderr, "--\n%s\n--\n", S2sz(M));
+
+	U = tb_unMarshall( M );
+
+	tb_Dump(U);
+
+	return TB_OK;
+}
+
+
+int mixed_test() {
+	Hash_t U,T,  H = tb_Hash();
+	String_t M;
+	Varray_t V = tb_Varray();
+
+	T = tb_Hash();
+
+	tb_Add(H, tb_String("1"), "un");
+	tb_Add(H, tb_Raw(5, "deux"), "deux");
+	tb_Add(H, tb_String("3"), "trois");
+
+	tb_Push(V, tb_String("4"));
+
+	tb_Push(V, T);
+	tb_Add(T, tb_String("5"), "cinq");
+	tb_Add(T, tb_Num(6), "six");
+	tb_Push(V, tb_String("7"));
+
+	tb_Add(H, V, "array");
+
+
+	tb_Dump(H);
+
+	M = tb_Marshall( H );
+	
+	fprintf(stderr, "--\n%s\n--\n", S2sz(M));
+
+	U = tb_unMarshall( M );
+
+	tb_Dump(U);
+
+	return TB_OK;
+}
+
+
+
+

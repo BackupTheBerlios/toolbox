@@ -1,0 +1,330 @@
+2004-05-11  Paul Gatille  <pge@xanadu>
+
+	* <internal change only (should be no API disruption) >
+	+ reworked tb_Object internals to allow full member inheritance : created new 'members' struct containing specific members of class instance ; and a pointer to is direct anscestor's members.
+	+ removed tb_Object_t->size, tb_Object_t->data, tb_Object_t->extra (equivalent or replacement inside members structure now)
+	+ fixed tb_getSize to be a derivable function implemented by classe
+	+ evolved new_class.pl accordingly
+	
+	+ add 'tb_' prefix to all memory wrappers (xmalloc, xcalloc, xrealloc and xfree) to fix a name clash with some gnu libs (including readline)
+
+2002-09-03  Paul L. Gatille  <pol@xanadu.dev33.cvf>
+
+	* modules/tb_db/Structure/db_Operation.c: 
+	+ deep re-work of evaluer. more progress to come (hopefully)
+	- not yet functional
+
+	* src/Containers/Containers.c: 
+	+ tb_Find(Container_t, tb_Key_t) : return iterator on first elem matching key. (proto may 
+	change soon)
+	
+
+2002-08-29  Paul L. Gatille  <pol@xanadu.dev33.cvf>
+
+	* modules/tb_db/uSQL/usql_parser.c (merge_related_op): 
+	remade parser. Generic build tree core in place. Still many specific case ignored.
+
+2002-08-28  Paul L. Gatille  <pol@xanadu.dev33.cvf>
+
+	* modules/tb_db/uSQL/usql_parser.c (merge_related_op): 
+	!!BUG!! tb_Get crush fastem internals when getting up to NULL duplicated keys
+	!! see bpt_iterator.c and bplus_tree.c
+
+	* src/Containers/hash_iterators.c: 
+	+ fixed hash iterator when using duplicate keys
+
+2002-08-27  Paul L. Gatille  <pol@xanadu.dev33.cvf>
+
+	* src/Containers/Hash_impl.c: 
+	Splitted Hash.c in Hash_impl.c (static private methods) and Hash.c (public interface)
+	Changed internal typing to new Ktype typing.
+	New constructor : tb_HashX(int Ktype, int allow_duplicates)
+	(Old tb_Hash() default to tb_HashX(KT_STRING, NO_DUPLICATES); -> no incompatible changes
+	- removed tb_Hash_change_hashing_fnc (not used) and all hashing funcs except djbx33 
+	- removed also deprecated Hash_Normalize (use tb_HashX(KT_STRING_I))
+	- finally removed deprecated old-timers tb_rPeek and tb_Peeksz
+	+ added 'allow_duplicates' feature (need more testing as usual)
+
+	* src/Containers/Ktypes.c: 
+	Extracted key types registering and accessors/typecasters to Ktypes.c (was part of 
+	bplus_tree.c). Requiered move in order to make a 'type-neutral' Hash container.
+	+ added new K2sz typecaster: easier keys dumping to come !
+
+2002-08-23  Paul L. Gatille  <pol@xanadu.dev33.cvf>
+
+	* src/Composites/Iterators.c: 
+	Iterator constructor now returns NULL if nothing to iterate. Must check containers for
+	conformance [update: fixed].
+
+	* modules/tb_db/uSQL/usql_eval.c: 
+	first drop of sql tree evaluer. Heavily bugged and *much* too slow (no optimized yet).
+	- op sorter (aka 'optimizer') broken. ->do be Rethinked(tm) then reWriten(tm).
+	- parser need to croak on unresolvable unqualified select fields (it actually tries, but 
+	fail) [update: fixed]
+	- what if a work field isn't indexed (choke, build index silently, use bulk  varray
+	iterator ? choose one, and stick with it)
+	
+
+2002-08-21  Paul L. Gatille  <pol@xanadu.dev33.cvf>
+
+	* include/Toolbox4.h (enum Retcode): 
+	! made a dangerous move : changed TB_ERR from -1 to INT_MIN (lowest value for signed int)
+	!! will be much easier to check error where returning an int, but could break many wrong
+	assumption that TB_ERR is -1 hardcoded.
+
+2002-08-20  Paul L. Gatille  <pol@xanadu.dev33.cvf>
+
+	* modules/tb_db/uSQL/usql_parser.c: 
+	Structures mostly done, reorg of parser mostly complete. New optimizer code base in 
+	progress.
+
+	- Parser can know deal with aliases in 'from list', and args coherency is now enforced 
+	correctly (still to be tested :)
+	
+
+2002-08-14  Paul L. Gatille  <pol@xanadu.dev33.cvf>
+
+	* src/Objects/Serialisable_interface.c: 
+	moved serialisation functions into Serialisable interface for finer grained extensibility
+	( same done for Iterable and C_Castable interfaces)
+
+2002-08-13  el e-Pol  <pol@xanadu.dev33.cvf>
+
+	* src/Objects/classRegistry.c: 
+	!!! extended dynamic typing by use of interfaces (declaration of virtual methods). So we 
+	have a direct-line public derivating system (no way to inherits from more than one parent) 
+	and a way to share common interfaces between different objects (not on same inheritance
+	branch). Sounds java, you said ?
+	Btw, interfaces are inherited from ancestors just like class methods.
+
+2002-07-17  Paul L. Gatille  <pol@xanadu.dev33.cvf>
+
+	* src/Objects/typeRegistry.c: 
+	!! Added a brand new way of creating TB_OBJECT type identifiers, allowing safe and easy extending (subclassing) 
+
+2002-07-03  Paul L. Gatille  <pol@xanadu.dev33.cvf>
+
+	* src/XmlLite/XmlDoc.c: fix lazy checking in xml parser : now parsing fail if closing tag is not found
+
+2002-06-24  Paul L. Gatille  <pol@xanadu.dev33.cvf>
+
+	* src/Composites/SockIO.c: fix readSock: internal use of RawAdd solved pb of binary content, but lead to erroneous length set (RawAdd suppose trailing \0 to be counted in length). Reverted to StrAdd where readSock arg is of type String_t.
+
+2002-06-19  Paul L. Gatille  <pol@xanadu.dev33.cvf>
+
+	* src/XmlLite/XmlDoc.c: fix a little mem leak when skipping empty text node in charElement
+	+ _dbg_file and other globs are now thread specific (and safe hopefully!).
+
+2002-06-17  Paul L. Gatille  <pol@xanadu.dev33.cvf>
+
+	* fixed Dict and Hash iterators. Still Varray to do [update: done].
+	-> to be added : cloning of iterators
+	-> bpt_dupes still broken [update: fixed]
+	-> fastmem don't shrink correctly in dict_test with Hash [update: fixed]
+	++ new bug : _dbg_file and so are not thread_safe ![update fixed]
+	
+2002-06-13  Paul L. Gatille  <pol@xanadu.dev33.cvf>
+
+	* src/Objects/Objects.c: fix stupid crash when tb_toStr(container, non-existent-key)
+
+2002-06-12  Paul L. Gatille  <pol@xanadu.dev33.cvf>
+
+	* src/XmlLite/XmlDoc.c: 
+	buggy string constructor nString take strsz as len arg (so you must 1 to length for the trailling 0)
+
+2002-05-29  Paul L. Gatille  <pol@xanadu.dev33.cvf>
+
+	* include/strfmt.h: 
+	add __tb_[v][a]snprintf family functions to use fm_malloc internally
+	and changed tb_[v][a]snprintf to use plain malloc (for sake of users calling 'free' on fm_mallocated chunk)
+
+2002-04-12  el e-Pol  <pol@xanadu.dev33.cvf>
+
+	* modules/tb_www/http/http_client.c: 
+	* modules/tb_www/http/cookies.c:
+	+ cookie support added on client side (70%)
+	--> must cycle in pathes from end to start (see netscape's spec)
+	--> need code review (leaks a lot probably)
+	--> need some protection against buff overflows and cookies attacks
+
+2002-04-03  Paul L. Gatille  <pol@xanadu.dev33.cvf>
+
+	* src/Containers/hash_iterators.c: 
+	+ fixed implicit hash iterators [update: fully removed/(broken concept)]
+
+2002-04-02  Paul L. Gatille  <pol@xanadu.dev33.cvf>
+
+	+ partly fixed iterators : 
+	-> implicit tb_Dict ones are sanes (need more test as usual) [update: removed]
+	-> implicit hashes works in top to bottom; reversing will need more work
+	-> base for Iterator_t object are set but not yet usable
+	+TODO: have a flag for consistency to fail sanely when changing container 
+	while iterating inside (also more sanity checks in top level fnc)
+	+TODO: varray iterators (implicit and explicit)
+	
+2002-03-25  el e-Pol  <pol@xanadu.dev33.cvf>
+
+	* src/Containers/bplus_tree.c: 
+	+fixed bad leaf chaining (more extensive testing should be done)
+	+TODO: maybe try to delay removing of keys when really useful (when a merge is 
+	possible, or when an insert could take place in leaf) --> add a 'deleted' flag
+	
+2002-03-22  Paul L. Gatille  <pol@xanadu.dev33.cvf>
+
+	! Dict_t seems badly broken : cf dict_test
+	+ http_server preliminary nearly done (still many headers to deal with)
+	--> nearly useable for testing (but need Dict to be fixed first)
+
+	* src/Containers/bpt_iterators.c: 
+	new iterators for Dict type.
+
+	* src/Containers/bplus_tree.c: 
+	fix swapped methods insert/replace 
+
+2002-03-14  Paul L. Gatille  <pol@xanadu.dev33.cvf>
+
+        + added ACL validation in TCP/IP sockets servers
+	
+	* src/Composites/Socket.c: 
+	fix gethost_sin_addr when arg is a dotted address
+
+2002-02-05  el e-Pol  <pol@xanadu.dev33.cvf>
+
+	* src/Memory/fastmem.c: 
+	fix deadlock in fm_fastfree_off (clean_free_chunks only called by outer locking fnc)
+
+2002-01-31  el e-Pol  <pol@xanadu.dev33.cvf>
+
+	* src/Containers/Varray.c: 
+	+ fix a tb_Merge bug (bad memmove size calculation)
+
+2001-12-19  el e-Pol  <pol@xanadu.dev33.cvf>
+
+	* src/Memory/fastmem.c: 
+	+ added new internal mem manager for faster alloc/free
+	--> restriction : can't alloc chunk bigger than vector size [update: fixed]
+	- need extensive checking
+
+	* src/Composites/
+	+ splited socket code into 
+	- Socket.c for common socket and client part
+	- Server.c for server specific part
+	- Sock_ssl.c for ssl common parts.
+	+ Merged and fixed a lot of ssl support code.
+	+ Added ssl server support
+	+ Added new fnc hooking for custom ssl validation
+
+2001-10-12  Paul Gatille  <pol@xanadu.dev33.cvf>
+
+	* src/Scalars/String.c: 
+	+ added ALLOCATED size in string dump
+	+ new func tb_StrGet : cut and return fragment of src string
+	++ fixed tb_StrRepl mem glitches when replacing by shorter string
+
+2001-09-14  Paul Gatille  <pol@xanadu.dev33.cvf>
+
+	* modules/tb_www/http.c: 
+	allowed seamless downgrade from HTTP/1.1 to HTTP/1.0 
+	fixed URI_to_URL to honour HTTP version 
+	added WWW_NO_REDIRECT flag not to be redirected automagicaly
+	added WWW_NO_PROXY to allow direct acces to an URL without breaking proxy support
+	factorized body loading
+	-- TODO --
+	 +- cookie internal cache (matching of .domain vs FQHN, serializable/deserializable)
+	 +- cache
+	 +- proxy ssl tunneling [update: done]
+	 +- allow user to force HTTP version [update: done]
+	 +- port GET enhancements to POST and HEAD [update: done]
+	
+2001-09-13  Paul Gatille  <pol@xanadu.dev33.cvf>
+
+	* modules/tb_www/http.c: 
+	added Keep-Alive and closed cx dealing in session bag
+	added proxy support
+	+ many factorizing code by AJ (and mem leaks removal)
+	
+
+2001-08-22  Paul Gatille  <pol@xanadu.dev33.cvf>
+
+	* src/Regex/regex.c:
+	changed precomp behaviour to pcre_study the stored regex (in special cases, blinding 
+	improvement). Also added locale support
+
+2001-01-29  el e-Pol  <pol@xanadu.dev33.cvf>
+
+	* src/Containers/Varray.c: 
+	fixed woopla bug in reallok'ing nb slots elemts in V->data after a tb_Pop/tb_Get/tb_Shift
+
+2001-01-24  el e-Pol  <pol@xanadu.dev33.cvf>
+
+	* src/Composites/Socket.c: 
+	added bind to addr in TCP/IP server. 2nd arg of tb_Socket is used as 'bind point'. If
+	empty string (""), INADDR_ANY is used. Beware : localhost wil now bind on 127.0.0.1; 
+	disallowing external connect.
+
+2000-12-06  el e-Pol  <pol@xanadu.dev33.cvf>
+
+
+        * src/Scalars/strfmt.c (MY_UINT_MAX): Oops !! (hardcoded limit for formated string)
+	upped to 2147483647 (hopefully this time, t'll be enough)
+
+2000-11-16  el e-Pol  <pol@xanadu.dev33.cvf>
+
+	* src/Composites/SockIO.c: 
+	fix tb_writeSock to set status to TB_DISCONNECTED when got a write error
+
+2000-10-10  el e-Pol  <pol@xanadu.dev33.cvf>
+
+	* src/Xml/XmlDoc.c: 
+	* src/Xml/XmlElt.c: added many fnc to create/manip XmlElt internals. Not DOM yet.
+	* src/Composites/Socket.c: swiched back to old API for tb_Accept. (void * better than
+	Socket_t as arg, to stop gcc warns when used in pthread_create)
+
+	
+2000-10-05  el e-Pol  <pol@xanadu.dev33.cvf>
+
+	* src/Xml/XmlDoc.c: 
+	* src/Xml/XmlElt.c:  fix bogus parsing when text interleaved w/ elmts inside a node
+	*beware* more changes to come to deal w/ :
+	+ CData section (inside text)
+	+ API change to access unmodified text of a node (litteral CData, 
+	unexpanded entity refs ...) _or_ cooked text (entities expanded and CData merged)
+	+ ... (namespaces, external refs)
+	
+2000-03-10  The Real Pol (TM)  <pol@xanadu.dev33.cvf>
+
+	* src/Containers.c: fix a creeping bug (probably present since begining)
+	in hash_resize (node->prev where bogusly set) tb_get/remove should behave
+	more sanely now
+
+2000-02-03  The Real Pol (TM)  <pol@xanadu.dev33.cvf>
+
+	* src/Socket.c: added sweeping of ip aliases in tb_initSocket
+	(a single host name may be resolved by several ip)
+
+1999-12-03  The Real Pol (TM)  <pol@xanadu.dev33.cvf>
+
+	* src/Objects.c: added low-level access to data. no check are done !!
+
+1999-10-15  The Only Pol (TM)  <pol@xanadu.dev33.cvf>
+
+        * src/modules/tb_Sql/sql.c:
+        fix a bug when retrieving blobs (data where copied by vsnprintf). changed
+        to memcpy.    
+1999-09-27  The Only Pol (TM)  <pol@xanadu.dev33.cvf>
+
+	* src/String.c: 
+	design pb: all varargs constructors use printf pattern for expand futhers args.
+	if arbitrary string is given as pattern, witch contains '%', anything ranging
+	from nothing to immediate crash will occurs. Fix is to replace all 
+	tb_New(TB_STRING, str) with tb_New(TB_STRING, "%s", str) if known lenght < MAX_BUFFER
+	or tb_New_nString(strlen(str), "%s", str).
+
+1999-06-22    <pol@xanadu.dev33.cvf>
+
+	* src/String.c: 
+	fixed a bug in tokenize which doesn't deal with 2 delims 
+
+1999-04-21    <pol@xanadu.dev33.cvf>
+
+	* initial rev

@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<speak xml:lang="en-US">
+Hello world.
+<para>What is the weather today?</para>
+Very good!
+<para xml:lang="fr-FR">Bonjour le monde</para>
+Il fait beau ce matin.
+<paragraph>
+<sentence>La critique</sentence>
+<sentence gender="male">est ais?e</sentence>
+<sentence>mais l'art est difficile</sentence>
+</paragraph>
+<voice gender="female" age="child">J'aime bien les bonbons.</voice>
+</speak>

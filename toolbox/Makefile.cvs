@@ -1,0 +1,14 @@
+default: all
+
+all:
+	rm -f config.cache
+	libtoolize -c --automake 
+	aclocal
+	autoheader
+	automake --add-missing --foreign 
+	autoconf
+	aclocal
+	autoheader
+	automake
+	autoconf
+

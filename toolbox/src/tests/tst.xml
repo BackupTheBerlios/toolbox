@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<speak>
+<paragraph>
+ 
+<sentence>You have 4 new messages.</sentence>
+  
+<sentence>The first is from <sayas type="name">Stephanie Williams</sayas> and   
+arrived at <break/> <sayas type="time">3:45pm</sayas>.</sentence>
+<sentence xml:space="preserve">The 
+subject 
+is <prosody rate="-20%">ski 
+trip</prosody><sentence xml:space="default">don't
+show this CR</sentence>but
+show this</sentence>
+<sentence>You have 
+4 new messages.</sentence>
+  
+</paragraph>
+</speak>

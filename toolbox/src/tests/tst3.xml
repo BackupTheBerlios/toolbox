@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<speak>
+<paragraph>
+<sentence>You have 4 new messages.</sentence>
+<sentence>The <![CDATA[ <pif>&<pouf> ]]>first is from <sayas type="name">Stephanie Williams</sayas> and arrived at <sayas type="time">3:45pm</sayas>.</sentence>
+<sentence>The subject is</sentence>
+</paragraph>
+</speak>

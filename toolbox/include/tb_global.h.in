@@ -1,0 +1,12 @@
+
+#ifndef HAVE_TB_GLOBAL_H
+#define HAVE_TB_GLOBAL_H
+
+#include "config.h"
+
+#define PREFIX "@prefix@"
+#define HOST "@host@"
+#define @MY_OS@
+
+#endif
+

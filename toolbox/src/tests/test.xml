@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<DOC_SPG VERSION="1.0" SID="335">
+<SM_POPUP SMID="8781" NOTIF="10" MSISDN="0680647911">
+<DISPLAYTEXT xml:space="preserve">é Quoi? Je l&apos;ai depuis au
+moins 3 ans! Vous:</DISPLAYTEXT>
+<SELECTITEM TITLE="Actions" USEITEM="yes">
+<ITEM TEXT="et alors?"/>
+<ITEM TEXT="Désolé"/>
+</SELECTITEM>
+<SENDSM/>
+</SM_POPUP>
+</DOC_SPG>
+

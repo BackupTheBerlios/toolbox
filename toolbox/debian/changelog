@@ -1,0 +1,9 @@
+toolbox4 (1.1-1) unstable; urgency=low
+
+  * Initial release.
+
+ -- el m-Pol <pol@bifrost.dev33.cvf>  Thu, 14 Dec 2000 23:40:29 +0100
+
+Local variables:
+mode: debian-changelog
+End:
