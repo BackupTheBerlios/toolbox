@@ -1,4 +1,4 @@
-// $Id: socket_test.c,v 1.1 2004/05/12 22:05:14 plg Exp $
+// $Id: socket_test.c,v 1.2 2004/05/13 08:22:45 plg Exp $
 #include <pthread.h>
 #include <string.h>
 #include <errno.h>
@@ -14,7 +14,7 @@
 
 
 
-int callback(void *arg) {
+void *callback(void *arg) {
 	Socket_t S = (Socket_t)arg;
 	String_t Str = tb_String(NULL);
 	//int i;
@@ -45,10 +45,11 @@ int callback(void *arg) {
 	tb_writeSock(S, "BYE");
 	//tb_trace(TB_WARN, "Server: exit callback\n");
 	tb_Free(Str);
-	return TB_OK;
+
+	return NULL;
 }
 
-int tst_client(void) {
+void *tst_client(void *dummy) {
 	Socket_t Client  = tb_Socket(TB_TCP_IP, "", 55553);
 	String_t S  = tb_String(NULL); 
 
@@ -56,7 +57,7 @@ int tst_client(void) {
 	tb_setSockTO(Client, 20,0);
 	if(tb_getSockStatus(Client) == TB_CONNECTED) {
 		tb_writeSock(Client, "TEST TCP/IP");
-		while( ! tb_matchRegex(S, "BYE", NULL, 0)) {
+		while( ! tb_matchRegex(S, "BYE", 0)) {
 			if( tb_readSock(Client, S, 500) >0) {
 				tb_warn("client: got <%s>\n", S2sz(S));
 				tb_Clear(S);
@@ -68,7 +69,7 @@ int tst_client(void) {
 	
 	tb_Free(S);
 
-	return 1;
+	return NULL;
 }
 
 

@@ -1,4 +1,4 @@
-// $Id: marshall.c,v 1.1 2004/05/12 22:05:14 plg Exp $
+// $Id: marshall.c,v 1.2 2004/05/13 08:22:45 plg Exp $
 
 #include <string.h>
 #include <unistd.h>
@@ -13,7 +13,7 @@
 int string_test(void);
 int raw_test(void);
 int num_test(void);
-int varray_test(void);
+int vector_test(void);
 int hash_test(void);
 int mixed_test(void);
 
@@ -29,8 +29,8 @@ int main(int argc, char **argv) {
 	tb_profile("num_test");
 	num_test();
 
-	tb_profile("varray_test");
-	varray_test();
+	tb_profile("vector_test");
+	vector_test();
 
 	tb_profile("hash_test");
 	hash_test();
@@ -92,8 +92,8 @@ int num_test() {
 	return TB_OK;
 }
 
-int varray_test() {
-	Varray_t U,  V = tb_Varray();
+int vector_test() {
+	Vector_t U,  V = tb_Vector();
 	String_t M;
 
 	tb_Push(V, tb_String("1"));
@@ -117,9 +117,9 @@ int hash_test() {
 	Hash_t U,  H = tb_Hash();
 	String_t M;
 
-	tb_Add(H, tb_String("1"), "un");
-	tb_Add(H, tb_String("2"), "deux");
-	tb_Add(H, tb_String("3"), "trois");
+	tb_Insert(H, tb_String("1"), "un");
+	tb_Insert(H, tb_String("2"), "deux");
+	tb_Insert(H, tb_String("3"), "trois");
 
 	tb_Dump(H);
 
@@ -138,22 +138,22 @@ int hash_test() {
 int mixed_test() {
 	Hash_t U,T,  H = tb_Hash();
 	String_t M;
-	Varray_t V = tb_Varray();
+	Vector_t V = tb_Vector();
 
 	T = tb_Hash();
 
-	tb_Add(H, tb_String("1"), "un");
-	tb_Add(H, tb_Raw(5, "deux"), "deux");
-	tb_Add(H, tb_String("3"), "trois");
+	tb_Insert(H, tb_String("1"), "un");
+	tb_Insert(H, tb_Raw(5, "deux"), "deux");
+	tb_Insert(H, tb_String("3"), "trois");
 
 	tb_Push(V, tb_String("4"));
 
 	tb_Push(V, T);
-	tb_Add(T, tb_String("5"), "cinq");
-	tb_Add(T, tb_Num(6), "six");
-	tb_Push(V, tb_String("7"));
+	tb_Insert(T, tb_String("5"), "cinq");
+	tb_Insert(T, tb_Num(6), "six");
+	tb_Insert(V, tb_String("7"));
 
-	tb_Add(H, V, "array");
+	tb_Insert(H, V, "array");
 
 
 	tb_Dump(H);
