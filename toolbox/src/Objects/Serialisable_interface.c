@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 2; indent-tabs-mode: t; c-basic-offset: 2 -*- */
 //======================================================
-// $Id: Serialisable_interface.c,v 1.1 2004/05/12 22:04:51 plg Exp $
+// $Id: Serialisable_interface.c,v 1.2 2004/05/14 15:22:38 plg Exp $
 //======================================================
 
 // created on Thu Aug  1 15:23:25 2002
@@ -109,6 +109,8 @@ tb_Object_t tb_XmlunMarshall(XmlElt_t xml_element) {
 		p = __getMethod(TB_NUM, OM_UNMARSHALL);
 	} else if( streq(S2sz(XELT_getName(xml_element)), "base64")) {
 		p = __getMethod(TB_RAW, OM_UNMARSHALL);
+	} else if( streq(S2sz(XELT_getName(xml_element)), "dateTime.iso8601")) {
+		p = __getMethod(TB_DATE, OM_UNMARSHALL);
 	} else if( streq(S2sz(XELT_getName(xml_element)), "array")) {
 		p = __getMethod(TB_VECTOR, OM_UNMARSHALL);
 	} else if( streq(S2sz(XELT_getName(xml_element)), "struct")) {

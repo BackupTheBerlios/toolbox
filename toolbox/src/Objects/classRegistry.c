@@ -1,5 +1,5 @@
 //======================================================
-// $Id: classRegistry.c,v 1.1 2004/05/12 22:04:51 plg Exp $
+// $Id: classRegistry.c,v 1.2 2004/05/14 15:22:38 plg Exp $
 //======================================================
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -424,6 +424,7 @@ void tb_classRegisterInit() {
 	tb_registerNewClass("TB_RAW",       TB_SCALAR,     __build_raw_once);
 	tb_registerNewClass("TB_NUM",       TB_SCALAR,     __build_num_once);
 	tb_registerNewClass("TB_POINTER",   TB_SCALAR,     __build_pointer_once);
+	tb_registerNewClass("TB_DATE",      TB_SCALAR,     __build_date_once);
 
 	tb_registerNewClass("TB_HASH",      TB_CONTAINER,  __build_hash_once);
 	tb_registerNewClass("TB_VECTOR",    TB_CONTAINER,  __build_vector_once);

@@ -1,5 +1,5 @@
 // ===============================================================================
-// $Id: Objects.c,v 1.1 2004/05/12 22:04:50 plg Exp $
+// $Id: Objects.c,v 1.2 2004/05/14 15:22:38 plg Exp $
 // ===============================================================================
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -80,21 +80,22 @@ int	OM_CLONE;
 int	OM_DUMP;
 int	OM_CLEAR;
 int	OM_INSPECT; // NYI -> to be used to allow self inspection and reflection
+int	OM_STRINGIFY;
 
 
 static tb_Object_t   tb_object_new   (void);
 static void        * tb_object_free  (tb_Object_t O);
 static void          tb_object_dump  (tb_Object_t O, int level);
+char               * tb_object_stringify(tb_Object_t T);
 
+inline const char   *tb_nameOf       (int Oid)    { return __class_name_of(Oid); }
 
-inline const char   *tb_nameOf(int Oid)    { return __class_name_of(Oid); }
-
-inline retcode_t TB_VALID(tb_Object_t O, int toolbox_class_id) {
+inline retcode_t     TB_VALID        (tb_Object_t O, int toolbox_class_id) {
 	if(O == NULL) return TB_KO;
 	return __VALID_CLASS(O->isA, toolbox_class_id);
 }
 
-inline uint          tb_isA(tb_Object_t O) { return (TB_VALID(O, TB_OBJECT)) ? O->isA : -1 ; }
+inline uint          tb_isA          (tb_Object_t O) { return (TB_VALID(O, TB_OBJECT)) ? O->isA : -1 ; }
 
 /**
  * Retreive inherited members
@@ -159,9 +160,12 @@ void __build_object_once(int OID) {
 	OM_CLEAR       = tb_registerNew_ClassMethod("Clear",        OID);
 	OM_INSPECT     = tb_registerNew_ClassMethod("Inspect",      OID);
 
+	OM_STRINGIFY   = tb_registerNew_ClassMethod("Stringify",    OID);
+
 	tb_registerMethod(OID, OM_NEW,  tb_object_new);
 	tb_registerMethod(OID, OM_FREE, tb_object_free);
 	tb_registerMethod(OID, OM_DUMP, tb_object_dump);
+	tb_registerMethod(OID, OM_STRINGIFY, tb_object_stringify);
 }
 
 
@@ -202,7 +206,7 @@ void tb_freeMembers(tb_Object_t This) {
 }
 
 // [private] build object ancestor
-tb_Object_t tb_newParent( int child ) {
+tb_Object_t tb_newParent(int child) {
 	void *p;
 	tb_Object_t This;
 	p = __getMethod( __parent_of(child), OM_NEW );
@@ -309,7 +313,34 @@ tb_Object_t tb_Clone(tb_Object_t T) {
   return Clone;
 }
 
+char *tb_object_stringify(tb_Object_t T) {
+	return (char *)tb_nameOf(tb_isA(T));
+}
 
+
+/** 
+ * Displays string representation of Object_t contents (when applicable)
+ * \ingroup Object
+ * Shows contents of tb_Object. A container will also display recursively his elements
+ *
+ * \remarks in case of error tb_errno will be set to :
+ * - TB_ERR_INVALID_OBJECT if obj not a TB_OBJECT
+ *
+ * @see tb_Object_t 
+ * @see tb_Free, tb_Clear, tb_Clone, tb_Alias, tb_isA, tb_Dump, tb_getSize, tb_toStr, tb_toInt , tb_Marshall, tb_unMarshall
+*/
+char *tb_Stringify(tb_Object_t O) {
+	void *p;
+	if(! tb_valid(O, TB_OBJECT, __FUNCTION__)) return NULL;
+
+	if((p = tb_getMethod(O, OM_STRINGIFY))) {
+		return ((char *(*)(tb_Object_t))p)(O); 
+	} else {
+		set_tb_errno(TB_ERR_NO_SUCH_METHOD);
+		tb_error("%p (%d) [no dump method]\n", O, O->isA);
+	}
+	return NULL; // not likely to happen
+}
 
 /** 
  * Displays xml representation of Object_t internals.
