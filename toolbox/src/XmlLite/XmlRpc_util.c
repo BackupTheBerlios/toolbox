@@ -1,5 +1,5 @@
 //=======================================================
-// $Id: XmlRpc_util.c,v 1.4 2004/05/28 15:06:07 plg Exp $
+// $Id: XmlRpc_util.c,v 1.5 2004/06/08 16:30:05 plg Exp $
 //=======================================================
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -359,7 +359,7 @@ void XRpc_receiveCall(Socket_t So) {
 			// Not freeing SigParamIt at this point 
 		}
 
-		tb_warn("will call native\n");
+		tb_info("will call native\n");
 
 		rc = XRpc_callNative(Xr, tb_toStr(methodName), argVector);
 
@@ -393,10 +393,13 @@ void XRpc_receiveCall(Socket_t So) {
 	}
 
  send_reply:
-	tb_warn("reply<%S>\n", Reply);
+	if(tb_errorlevel >= TB_WARN) {
+		fprintf(stderr, "XmlRPC Reply: \n%s\n", tb_toStr(Reply));
+	}
+
 
 	rc = tb_writeSock(So, tb_toStr(Reply));
-	tb_warn("send reply rc=%d\n", rc);
+	tb_info("send reply rc=%d\n", rc);
 	tb_Clear(So);
 	tb_Free(Reply);
 }
