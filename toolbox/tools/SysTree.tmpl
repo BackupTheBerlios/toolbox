@@ -1,0 +1,23 @@
+Author Paul L. Gatille <Paul.Gatille\@free.fr>
+begin_licence
+/*
+ * Copyright (c) 2004, Audemat-Aztec
+*/
+end_licence
+
+ClassName SysTree
+#ClassParent may be empty
+ClassParent STreeBase
+#Interface may also be empty or occurs more than once
+
+begin_members
+#<name> <type may be composed of many words>
+#size unsigned int
+
+Action     Hash_t
+Attributes Record_t
+Branches   Hash_t;
+States     Hash_t
+
+end_members
+
