@@ -113,7 +113,8 @@ if(defined @Interfaces) {
 }
 
 
-$cvstag = "\$Id: genClass.pl,v 1.1 2004/06/14 15:51:14 plg Exp $";
+$cvstag = "%Id:%";
+$cvstag =~ s/\%/\$/g;
 
 $class_c = $class_name . ".c";
 $class_h = $class_name . ".h";
