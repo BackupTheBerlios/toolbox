@@ -1,5 +1,5 @@
 //=======================================================
-// $Id: XmlRpc_util.c,v 1.3 2004/05/27 15:54:07 plg Exp $
+// $Id: XmlRpc_util.c,v 1.4 2004/05/28 15:06:07 plg Exp $
 //=======================================================
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -410,11 +410,11 @@ static void XRpc_makeFaultResponse(String_t Response, int fault) {
 	tb_StrAdd(Response, -1,    "    <struct>\n");
 	tb_StrAdd(Response, -1,    "      <member>\n");
 	tb_StrAdd(Response, -1,    "        <name>faultCode</name>\n");
-	tb_StrAdd(Response, -1,    "        <value><int>%d</int><value>\n");
+	tb_StrAdd(Response, -1,    "        <value><int>%d</int></value>\n");
 	tb_StrAdd(Response, -1,    "      </member>\n");
 	tb_StrAdd(Response, -1,    "      <member>\n");
 	tb_StrAdd(Response, -1,    "        <name>faultString</name>\n");
-	tb_StrAdd(Response, -1,    "        <value><string>remote function error</string><value>\n");
+	tb_StrAdd(Response, -1,    "        <value><string>remote function error</string></value>\n");
 	tb_StrAdd(Response, -1,    "      </member>\n");
 	tb_StrAdd(Response, -1,    "    </struct>\n");
 	tb_StrAdd(Response, -1,    "  </fault>\n");

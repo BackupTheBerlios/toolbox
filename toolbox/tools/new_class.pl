@@ -16,15 +16,17 @@
 #=====================================================================================
 #
 $author = "Paul L. Gatille <gatille\@audemat-aztec.com>";
-#$licence = "Copyright (c) 2004, Audemat-Aztec http://audemat-aztec.com";
-$licence = "Copyright (c) 2004, Paul Gatille";
+$licence = "Copyright (c) 2004, Audemat-Aztec http://audemat-aztec.com";
+#$licence = "Copyright (c) 2004, Paul Gatille";
 
 %Members = (
-#						"Default", "tb_Object_t",
 						"Templates", "Hash_t",
+						"Type",      "int",
+						"Range",     "Vector_t",    
+						"Default",   "tb_Object_t"
 	);
 
-$fnc_prefix = "Rec_";
+$fnc_prefix = "TTmpl_";
 #
 #=====================================================================================
 
@@ -45,7 +47,7 @@ if(defined $ARGV[2]) {
 	$author = $ARGV[2];
 }
 
-$cvstag = "\$Id: new_class.pl,v 1.2 2004/05/24 16:37:53 plg Exp $";
+$cvstag = "\$Id: new_class.pl,v 1.3 2004/05/28 15:06:07 plg Exp $";
 
 $class_c = $class_name . ".c";
 $class_h = $class_name . ".h";
@@ -137,7 +139,7 @@ int $type_tag_T;
 
 static void *$free( $typedef Obj);
 //static  $typedef $clone($typedef Obj);
-//static  void $dump($typedef Obj);
+//static  void $dump($typedef Obj, int level);
 //static  $typedef $clear($typedef Obj);
 //...
 
@@ -165,9 +167,13 @@ void $setup_once(int OID) {
 }
 
 
-$typedef dbg_$class_name(char *func, char *file, int line, /*[your args here]*/) {
+$typedef dbg_$class_name(char *func, char *file, int line 
+      /* your args here */) {
+	$typedef Obj;
 	set_tb_mdbg(func, file, line);
-	return ${class_name}_new( /*[your args]*/ );
+	Obj = ${class_name}_new();
+	/* specific ctor code goes here */
+	return Obj;
 }
 
 
@@ -185,13 +191,21 @@ $typedef dbg_$class_name(char *func, char *file, int line, /*[your args here]*/)
  * \\ingroup $type_tag
  */
 
-$typedef ${class_name}( /*[ your args here ]*/ ) {
-	return ${class_name}_new( /*[your args]*/ );
+$typedef ${class_name}(/* your args here*/) {
+	$typedef Obj;
+	Obj = ${class_name}_new();
+	/* specific ctor code goes here */
+	return Obj;
 }
 
 
 
-$typedef ${class_name}_new( /*[ your args here ]*/ ) {
+/** Generic $typedef contructor
+ * 
+ * called from children 
+ * remember that this generic ctor must not use parameters (for inheritancy compliance) 
+ */ 
+$typedef ${class_name}_new() {
 	tb_Object_t This;
 	pthread_once(&__$init_once, $init_once);
 	$class_name_members_t m;
@@ -199,12 +213,10 @@ $typedef ${class_name}_new( /*[ your args here ]*/ ) {
 	
 	This->isA  = $type_tag_T;
 
-
-
 	m = ($class_name_members_t)tb_xcalloc(1, sizeof(struct $class_name_members));
 	This->members->instance = m;
 
-	/*  [... add your ctor code here ...]	*/
+	/*  [... generic ctor code here (members init)...]	*/
 
 	if(fm->dbg) fm_addObject(This);
 
@@ -213,11 +225,10 @@ $typedef ${class_name}_new( /*[ your args here ]*/ ) {
 
 void *$free($typedef Obj) {
 	if(tb_valid(Obj, $type_tag_T, __FUNCTION__)) {
-
+    // ($class_name_members_t) m = $Xclass(Obj);
 		fm_fastfree_on();
 
 		/*[ your dtor code here ]
-			m = $Xclass(Obj);
 		tb_xfree(m->my_own_member);
 		don\'t free m itself : tb_freeMembers(Obj) will take care of it
 		*/
@@ -237,7 +248,7 @@ static $typedef $clone($typedef This) {
 */
 
 /*
-static void $dump($typedef This) {
+static void $dump($typedef This, int level) {
 }
 */
 
@@ -340,7 +351,7 @@ $members_struct
 inline $class_name_members_t $Xclass($typedef T);
 
 #if defined TB_MEM_DEBUG && (! defined NDEBUG) && (! defined __BUILD)
-$typedef dbg_$class_name(char *func, char *file, int line /*, [ your args here ]*/);
+$typedef dbg_$class_name(char *func, char *file, int line);
 #define $class_name(x...)      dbg_$class_name(__FUNCTION__,__FILE__,__LINE__,x)
 #endif
 
@@ -384,8 +395,8 @@ extern int $type_tag_T;
 // --[public methods goes here ]--
 
 // constructors
-$typedef $class_name( /*[ your args here ]*/ );
-$typedef ${class_name}_new( /*[ your args here ]*/ );
+$typedef $class_name(/* your args here */);
+$typedef ${class_name}_new(); // mandatory default ctor (without params)
 // factories (produce new object(s))
 /*...*/
 // manipulators (change self) 
