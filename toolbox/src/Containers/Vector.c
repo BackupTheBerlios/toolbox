@@ -1,5 +1,5 @@
 //======================================================
-// $Id: Vector.c,v 1.3 2004/05/24 16:37:52 plg Exp $
+// $Id: Vector.c,v 1.4 2004/06/02 16:41:45 plg Exp $
 //======================================================
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -39,7 +39,7 @@
 #include "Error.h"
 
 inline vector_members_t XVector(Vector_t V) {
-	return (vector_members_t )((__members_t)V->members)->instance;
+	return (vector_members_t)((__members_t)tb_getMembers(V, TB_VECTOR))->instance;
 }
 
 static void        tb_vector_dump         (Vector_t V, int level);
@@ -243,7 +243,7 @@ static retcode_t tb_vector_replace(Vector_t V, tb_Object_t data, int ndx) {
 */
 retcode_t tb_Push(Vector_t V, tb_Object_t data) {
 	no_error;
-	if(tb_valid(V, TB_VECTOR, __FUNCTION__) &&
+	if(TB_VALID(V, TB_VECTOR) &&
 		 tb_valid(data, TB_OBJECT, __FUNCTION__)) {
 		vector_members_t m = XVector(V);
 
