@@ -14,7 +14,7 @@
 # details.
 #
 #=====================================================================================
-
+use Data::Dumper;
 
 sub loadParams($$) {
 	my $template = shift;
@@ -41,25 +41,42 @@ sub loadParams($$) {
 		} elsif($in_members) {
 			if($line=~ /^\s*end_members$/) {
 				$in_members = 0;
-			} elsif($line=~ /\s*(\w+)\s+(.*)$/ ) {
-				$$Params{Member}->{$1} = $2;
+			} elsif($line=~ /\s*(__(?:PRIVATE|PUBLIC)_)\s+(\w+)\s+(.*)$/ ) {
+				$$Params{Member}{$2}{type} = $3;
+				$$Params{Member}{$2}{visibility} = $1;
 			}
-		} elsif($line=~ /\s*ClassName\s+(\w+)/ ) {
+		} elsif($line=~ /\s*TbxBuiltin/) {
+			$$Params{TbxBuiltin} = 1;
+		} elsif($line=~ /\s*ClassPrefix\s+(\w+)/) {
+			$$Params{ClassPrefix} = $1;
+		} elsif($line=~ /\s*ClassName\s+(\w+)/) {
 			$$Params{ClassName} = $1;
 		} elsif($line=~ /\s*ClassParent\s+(\w+)/ ) {
 			$$Params{ClassParent} = $1;
-		} elsif($line=~ /\s*Interface\s+(\w+)/ ) {
+		} elsif($line=~ /\s*Interface\s+(\w+)/) {
 			push(@{$$Params{Interface}}, $1);
-		} elsif($line=~ /\s*ClassMethod\s+(__TB_(?:MUTATOR|FACTORY|CTOR)_)*\s*(\w+)\s+(\w+)[(]([^)]+)[)]/ ) {
+		} elsif($line=~ /\s*ClassMethod\s+
+						(__(?:PRIVATE|PUBLIC)_)*\s*
+						(__TB_(?:MUTATOR|INSPECTOR|FACTORY|CTOR|DTOR)_)*\s*
+						(\w+)\s+
+						(\w+)\s*
+						[(]([^)]*)[)]/x ) {
 
-    #ClassMethod __TB_FACTORY_ String_t  tb_StrSub(String_t, int,  int)
+    #ClassMethod __PUBLIC_ __TB_FACTORY_ String_t  tb_StrSub(String_t, int,  int)
 
-      warn("$3: $1 $2 ($4)\n");
+      warn("$4: ($1) [$2] $3 ($5)\n");
 
-      $$Params{CM}{$3}{style} = $1;
-      $$Params{CM}{$3}{return} = $2;
-      $$Params{CM}{$3}{args} = $4;
-			push(@{$$Params{ClassMethod}}, $3);
+      $$Params{CM}{$4}{visibility} = $1;
+      $$Params{CM}{$4}{style}      = $2;
+      $$Params{CM}{$4}{return}     = $3;
+      $$Params{CM}{$4}{args}       = $5;
+
+			if($2 ne "__TB_CTOR_") {
+				push(@{$$Params{ClassMethod}}, $4);
+			} else {
+				warn("got a ctor<$4>\n");
+				$$Params{CTOR} = $4;
+			}
 		} elsif($line=~ /\s*begin_licence/ ) {
 			$in_licence = 1;
 		} elsif($line=~ /\s*begin_members/ ) {
@@ -80,10 +97,9 @@ sub loadParams($$) {
 
 
 if(!defined $ARGV[0]) {
-	print "usage:\ngenClass.pl template.file\n";
-	exit;
+	print "usage:\ngenClass.pl template.file [tbx-builtin]\n";
+  exit;
 }
-
 
 my %Params;
 
@@ -99,21 +115,41 @@ $licence      = $Params{Licence};
 @ClassMethods = @{$Params{ClassMethod}};
 @Interfaces = @{$Params{Interface}};
 
+if(defined $Params{CTOR}) {
+	$Ctor = $Params{CTOR};
+	warn(">$Ctor<\n");
+	$ctor_args = $Params{CM}{$Ctor}{args};
+  $list_ctor_args = ",".$ctor_args;
+}
+
 if(defined $class_parent) {
 	$parent_h = "#include \"$class_parent.h\"";
-	$class_parent_id = uc($class_parent);
+	$parent_impl_h = "$class_parent"."_impl.h";
+  $class_parent_id = uc($class_parent) . "_T";
 } else {
 	$class_parent_id = "NULL";
 }
 
 if(defined @Interfaces) {
-	$got_interfaces = "Implements ".join(@Interfaces, ",");
+	$got_interfaces = "Implements ".join(",", @Interfaces);
 } else {
 	$got_interfaces = "";
 }
 
+if(defined($Params{TbxBuiltin})) {
+	$builtin = 1;
+  $isBUILD = "#ifndef __BUILD\n#define __BUILD\n#endif\n"
+} else {
+	$builtin = 0;
+}
 
-$cvstag = "%Id:%";
+$fnc_prefix = "";
+if(defined($Params{ClassPrefix})) {
+	$fnc_prefix = $Params{ClassPrefix};
+}
+
+
+$cvstag = "\%Id:\%";
 $cvstag =~ s/\%/\$/g;
 
 $class_c = $class_name . ".c";
@@ -149,23 +185,45 @@ $year = $stuff[5] + 1900;
 if(defined %Members) {
 	$members_struct  = "struct $class_name_members {\n";
 	for my $v (keys( %Members)) {
-		$members_struct .= "  $Members{$v} $v;\n";
+		$members_struct .= sprintf("\t%-25s %s; //%s\n",
+																$Members{$v}{type},
+																$v,
+																$Members{$v}{visibility});
 	}
 	$members_struct .= "};\n";
 	$members_struct .= "typedef struct $class_name_members * $class_name_members_t;\n";
 	$setters = $setters_impl ="";
 	$getters = $getters_impl = "";
 	for my $v (keys(%Members)) {
-		$setters .= "retcode_t $fnc_prefix"."set".$v."($typedef Self, $Members{$v} val);\n";
+		if($Members{$v}{visibility} eq "__PUBLIC_") {
+			$pub_setters .= sprintf("%-15s %-25s %s\n",
+															"retcode_t",
+															$fnc_prefix."set".$v,
+															"($typedef Self, $Members{$v}{type} value);");
+			$pub_getters .= sprintf("%-15s %-25s %s\n",
+															$Members{$v}{type},
+															$fnc_prefix."get".$v,
+															"($typedef Self);");
+		} else {
+			$priv_setters .= sprintf("%-15s %-25s %s\n",
+															 "retcode_t",
+															 $fnc_prefix."set".$v,
+															 "($typedef Self, $Members{$v}{type} value);");
+			$priv_getters .= sprintf("%-15s %-25s %s\n",
+															 $Members{$v}{type},
+															 $fnc_prefix."get".$v,
+															 "($typedef Self);");
+		}
+
     $setters_impl .= "#ifdef BEWARE_A_STUPID_CODE_GENERATOR_DONE_THIS\n";
-		$setters_impl .= "retcode_t $fnc_prefix"."set".$v."($typedef Self, $Members{$v} val) {\n";
+		$setters_impl .= "retcode_t $fnc_prefix"."set".$v."($typedef Self, $Members{$v}{type} value) {\n";
     $setters_impl .= "\t if(tb_valid(Self, $typedef, __FUNCTION__)) {\n";
     $setters_impl .= "\t\t($class_name_members_t) m = $Xclass(Self);\n";
-    $setters_impl .= "\t\tm->$v = val;\n";
+    $setters_impl .= "\t\tm->$v = value;\n";
     $setters_impl .= "\t\treturn TB_OK;\n\t}\n\treturn TB_KO;\n}\n#endif\n\n";
-    $getters .= "$Members{$v} $fnc_prefix"."get".$v."($typedef Self);\n";
+
     $getters_impl .= "#ifdef BEWARE_A_STUPID_CODE_GENERATOR_DONE_THIS\n";
-		$getters_impl .= "$Members{$v} $fnc_prefix"."get".$v."($typedef Self) {\n";
+		$getters_impl .= "$Members{$v}{type} $fnc_prefix"."get".$v."($typedef Self) {\n";
     $getters_impl .= "\t if(tb_valid(Self, $typedef, __FUNCTION__)) {\n";
     $getters_impl .= "\t\t($class_name_members_t) m = $Xclass(Self);\n";
     $getters_impl .= "\t\treturn m->$v;\n\t}\n";
@@ -179,31 +237,104 @@ if(defined %Members) {
 	$getters = $getters_impl = "";
 }
 
+
+
 if(defined @ClassMethods) {
+	$meth_id = 0;
 	for my $method (@ClassMethods) {
 
     my $mid = "OM_".uc($method);
-    $methodIdentifiers .= "int OM_".uc($method). "\n";
+		if(! $builtin) {
+			$methodIdentifiers .= "int OM_".uc($method). "\n";
+		} 
 
 		$registerMethods .=	sprintf("\t%-15s = tb_registerNew_ClassMethod(%-15s, OID);\n",
 																$mid,
 																"\"".$method."\"");
 
-		$registeredMethods .= "extern int ". $mid. " ;\n";
+		if($builtin) {
+			$registeredMethods .= sprintf("#define %-15s %20s\n",
+																		$mid,
+																		$meth_id++);
+		} else {
+			$registeredMethods .= sprintf("extern int %s;\n",	$mid);
+		}
 
-    $classMeth_h .= $Params{CM}{$method}{return}." $method($typedef Self  ".$Params{CM}{$method}{args}.");\n";
-		$classMeth .= "$Params{CM}{$method}{return} $method($typedef Self /*other args as required*/) {\n";
+		$classMeth_h .= sprintf("%-15s %-15s %s%s);\n", 
+														$Params{CM}{$method}{style},
+														$Params{CM}{$method}{return},
+														" $method(",
+														$Params{CM}{$method}{args});
+
+		$debug_redef .= sprintf("%-15s dbg_%-15s %s%s);\n", 
+														$Params{CM}{$method}{return},
+														" $method(char *__dbg_func_, char *__dbg_file_, int __dbg_line_,",
+														$Params{CM}{$method}{args});
+
+		$debug_redef .= sprintf("#define %-15s dbg_%s\n",
+														$method."(x...)", 
+														$method."(__FUNCTION__,__FILE__,__LINE__,x)");
+		my $args = (length($Params{CM}{$method}{args}) >0)? $Params{CM}{$method}{args}:"";
+		$classMeth .= "$Params{CM}{$method}{return} $method($args) {\n";
 		$classMeth .= "\tif(tb_valid(Self, $type_tag_T, __FUNCTION__)) {\n";
 		$classMeth .= "\t\tvoid *p;\n\n";
-		$classMeth .= "\t\tif((p = tb_getMethod(T, $mid))) {\n";
-		$classMeth .= "\t\t\treturn ((".$Params{CM}{$method}{return}."(*)(".$Params{CM}{$method}{args}."))p)(Self /* other args*/);\n";
+		$classMeth .= "\t\tif((p = tb_getMethod(Self, $mid))) {\n";
+		
+		$namelist = mkNameList($Params{CM}{$method}{args});
+		$typelist = mkTypeList($Params{CM}{$method}{args});
+
+		$classMeth .= "\t\t\treturn ((".$Params{CM}{$method}{return}."(*)($typelist))p)($namelist);\n";
 		$classMeth .= "\t\t} else { \n";
 		$classMeth .= "\t\t\ttb_error(\"%p (%d) [no $method method]\", Self, tb_isA(Self));\n";
 		$classMeth .= "\t\t\tset_tb_errno(TB_ERR_NO_SUCH_METHOD);\n";
-		$classMeth .= "\t\t}\n\t}\n\treturn <err_code>;\n}\n\n";
+
+		if($Params{CM}{$method}{return} eq "retcode_t") {
+			$errcode = "TB_KO";
+		} elsif($Params{CM}{$method}{return} eq "void") {
+			$errcode = "";
+		} elsif($Params{CM}{$method}{return} =~ /tb_\w/) {
+			$errcode = "NULL";
+		} else {
+			$errcode = "<err_code>";
+		}
+		$classMeth .= "\t\t}\n\t}\n\treturn $errcode;\n}\n\n";
 	}
 }
 
+
+if($builtin) {
+	$init_from_parent = "pthread_once(&__class_registry_init_once, tb_classRegisterInit);";
+} else {
+	$init_from_parent = 
+	"\tpthread_once(&__init_".$class_parent."_once, __init_".$class_parent."_once);";
+}
+
+sub mkNameList() {
+	my $args = shift;
+
+	my @rez = split(/,/, $args);
+	my @list =();
+	for my $pair (@rez) {
+		$pair =~ s/^\s+//;
+		@broken = split(/\s+/, $pair);
+		$b = pop(@broken);
+		push(@list, $b);
+	}
+	return join(",", @list);
+}
+
+sub mkTypeList() {
+	my $args = shift;
+	my @list = ();
+	my @rez = split(/,/, $args);
+	for my $pair (@rez) {
+		$pair =~ s/^\s+//;
+		my @broken = split(/\s+/, $pair);
+		pop @broken;
+		push(@list, join(" ", @broken));
+	}
+	return join(",", @list);
+}
 
  ##########################################################################################
 
@@ -226,27 +357,23 @@ $licence
 /**
  * \@defgroup $type_tag $typedef
  * \@ingroup $class_parent
- * Class $class_name (extends $class_parent, $got_interfaces)
+ * Class $class_name (extends $class_paren, $got_interfaces)
  * description :
  *
  * ... here the header description
  */
 
 
-/* uncomment only for internal Toolbox Class
-#ifndef BUILD
-#define BUILD
-#endif
-*/
+$isBUILD
 
 #include "Toolbox.h"
 #include "Memory.h"
 #include "Error.h"
-#include "$class_h"
 #include "$class_impl_h"
 #include "tb_ClassBuilder.h"
 
 int $type_tag_T;
+
 $methodIdentifiers
 
 static void *$free( $typedef Self);
@@ -263,8 +390,9 @@ inline $class_name_members_t $Xclass($typedef Self) {
 
 pthread_once_t __$init_once = PTHREAD_ONCE_INIT;
 void $init_once() {
-	pthread_once(&__class_registry_init_once, tb_classRegisterInit);
-	// if you doesn\'t extends directly from a toolbox class, you must call your ancestor init
+
+$init_from_parent
+	// init also friend classes here if needed
 	$type_tag_T = tb_registerNewClass("$typedef", $class_parent_id, $setup_once);
 }
 
@@ -280,13 +408,15 @@ $registerMethods
 }
 
 
-$typedef dbg_$class_name(char *func, char *file, int line
-      /* your args here */) {
-	$typedef Self;
-	set_tb_mdbg(func, file, line);
-	Self = ${class_name}_new();
+$typedef ${class_name}_ctor($typedef Self $list_ctor_args) {
 	/* specific ctor code goes here */
 	return Self;
+}
+
+$typedef dbg_$class_name(char *func, char *file, int line
+	                       $list_ctor_args) {
+	set_tb_mdbg(func, file, line);
+  return ${class_name}_ctor(${class_name}_new() $list_ctor_args);
 }
 
 
@@ -304,11 +434,8 @@ $typedef dbg_$class_name(char *func, char *file, int line
  * \\ingroup $type_tag
  */
 
-$typedef ${class_name}(/* your args here*/) {
-	$typedef Self;
-	Self = ${class_name}_new();
-	/* specific ctor code goes here */
-	return Self;
+$typedef ${class_name}($ctor_args) {
+  return ${class_name}_ctor(${class_name}_new() $list_ctor_args);
 }
 
 
@@ -417,17 +544,24 @@ $licence
 
 #include "Toolbox.h"
 #include "$class_h"
+#include "$parent_impl_h"
 
+extern pthread_once_t __$init_once;
+extern void $init_once();
 
 $members_struct
 
+// Private setters & getters
+$priv_getters
+$priv_setters
 
+// Protected constructor
+$typedef $class_name_ctor($typedef Self $ctor_args);
+// Private default constructor
+$typedef ${class_name}_new(); // mandatory default ctor (without params)
+
+// members accessor
 inline $class_name_members_t $Xclass($typedef Self);
-
-#if defined TB_MEM_DEBUG && (! defined NDEBUG) && (! defined __BUILD)
-$typedef dbg_$class_name(char *func, char *file, int line);
-#define $class_name(x...)      dbg_$class_name(__FUNCTION__,__FILE__,__LINE__,x)
-#endif
 
 #endif
 
@@ -468,18 +602,29 @@ $registeredMethods
 // --[public methods goes here ]--
 
 // constructors
-$typedef $class_name(/* your args here */);
-$typedef ${class_name}_new(); // mandatory default ctor (without params)
+$typedef $class_name($ctor_arg);
 // factories (produce new object(s))
 /*...*/
 // manipulators (change self)
-$setters
+$pub_setters
 /*...*/
 // inspectors (don\'t change self)
-$getters
+$pub_getters
 /*...*/
 
 $classMeth_h
+
+
+
+#if defined TB_MEM_DEBUG && (! defined NDEBUG) && (! defined __BUILD)
+
+$typedef dbg_$class_name(char *func, char *file, int line);
+#define $class_name(x...)      dbg_$class_name(__FUNCTION__,__FILE__,__LINE__,x)
+
+$debug_redef
+
+#endif
+
 
 #endif
 
