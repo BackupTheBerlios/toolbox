@@ -1,5 +1,5 @@
 //------------------------------------------------------------------
-// $Id: Pointer.c,v 1.2 2004/06/15 15:08:27 plg Exp $
+// $Id: Pointer.c,v 1.3 2004/07/01 21:44:35 plg Exp $
 //------------------------------------------------------------------
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -39,13 +39,15 @@ inline pointer_members_t XPtr(Pointer_t P) {
 	return (pointer_members_t)((__members_t)tb_getMembers(P, TB_POINTER))->instance;
 }
 
-//#define XPTR(P) ((void *)P->members->instance)
+static Pointer_t Pointer_new    ();
+static Pointer_t Pointer_clear  (Pointer_t Self);
 
 void __build_pointer_once(int OID) {
-	tb_registerMethod(OID, OM_NEW,          tb_Pointer);
+	tb_registerMethod(OID, OM_NEW,          Pointer_new);
 	tb_registerMethod(OID, OM_FREE,         tb_pointer_free);
 	tb_registerMethod(OID, OM_GETSIZE,      tb_pointer_getsize);
 	tb_registerMethod(OID, OM_DUMP,         tb_pointer_dump);
+	tb_registerMethod(OID, OM_CLEAR,        Pointer_clear);
 }
 
 
@@ -58,7 +60,7 @@ void *P2p(Pointer_t P) {
 
 Pointer_t dbg_tb_pointer(char *func, char *file, int line, void *v, void *free_fnc) {
 	set_tb_mdbg(func, file, line);
-	return tb_Pointer(v, free_fnc);
+	return Pointer_ctor(Pointer_new(), v, free_fnc);
 }
 
 /** Pointer_t constructor.
@@ -96,6 +98,31 @@ Pointer_t dbg_tb_pointer(char *func, char *file, int line, void *v, void *free_f
  * @ingroup Pointer
  */
 Pointer_t tb_Pointer(void *v, void *free_fnc) {
+	return Pointer_ctor(Pointer_new(), v, free_fnc);
+}
+
+Pointer_t Pointer_ctor(Pointer_t Self, void *p, void *free_fnc) {
+	if(tb_valid(Self, TB_POINTER, __FUNCTION__)) {
+		pointer_members_t m = XPtr(Self);
+		if(m->userData && m->freeUserData) {
+#ifdef TB_MEM_DEBUG
+			if(m->freeUserData == tb_xfree ) {
+				tb_xfree(m->userData);
+			} else {
+				m->freeUserData(m->userData);
+			}
+#else
+			m->freeUserData(m->userData);
+#endif				
+		}
+
+		m->userData = p;
+		m->freeUserData =  (void (*)(void*))free_fnc;
+	}
+	return Self;
+}
+
+static Pointer_t Pointer_new() {
 	tb_Object_t This;
 	pointer_members_t m;
 	pthread_once(&__class_registry_init_once, tb_classRegisterInit);
@@ -104,12 +131,12 @@ Pointer_t tb_Pointer(void *v, void *free_fnc) {
 	This->members->instance = (pointer_members_t)tb_xcalloc(1, sizeof(struct pointer_members));
 	m = (pointer_members_t)This->members->instance;
 	m->size = -1;
-	if(free_fnc) m->freeUserData = (void (*)(void*))free_fnc;
-	m->userData = v;
+
 	if(fm->dbg) fm_addObject(This);
 
 	return This;
 }
+
 
 int tb_pointer_getsize(Pointer_t P) {
 	return XPtr(P)->size;
@@ -157,6 +184,26 @@ void tb_pointer_dump(Pointer_t P, int level) {
 	}
 }
 
+
+static Pointer_t Pointer_clear(Pointer_t Self) {
+	if(tb_valid(Self, TB_POINTER, __FUNCTION__)) {
+		pointer_members_t m = XPtr(Self);
+		if(m->userData && m->freeUserData) {
+#ifdef TB_MEM_DEBUG
+			if(m->freeUserData == tb_xfree ) {
+				tb_xfree(m->userData);
+			} else {
+				m->freeUserData(m->userData);
+			}
+#else
+			m->freeUserData(m->userData);
+#endif				
+			m->userData = NULL;
+			m->freeUserData = NULL;
+		}
+	}
+	return Self;
+}
 
 
 

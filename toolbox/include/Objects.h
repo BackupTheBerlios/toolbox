@@ -1,5 +1,5 @@
 //------------------------------------------------------------------
-// $Id: Objects.h,v 1.3 2004/05/24 16:37:51 plg Exp $
+// $Id: Objects.h,v 1.4 2004/07/01 21:37:09 plg Exp $
 //------------------------------------------------------------------
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -78,7 +78,7 @@ struct tb_Object * tb_newParent       (int child);
 void             * tb_getMethod       (struct tb_Object *O, int OM_NDX);
 const char       * tb_nameOf          (int isA);
 const char       * tb_methodName      (int met);
-
+inline int         tb_getClassIdByName(char *class_name);
 #endif
 
 

@@ -217,15 +217,15 @@ if(defined %Members) {
 
     $setters_impl .= "#ifdef BEWARE_A_STUPID_CODE_GENERATOR_DONE_THIS\n";
 		$setters_impl .= "retcode_t $fnc_prefix"."set".$v."($typedef Self, $Members{$v}{type} value) {\n";
-    $setters_impl .= "\t if(tb_valid(Self, $typedef, __FUNCTION__)) {\n";
-    $setters_impl .= "\t\t($class_name_members_t) m = $Xclass(Self);\n";
+    $setters_impl .= "\t if(tb_valid(Self, $type_tag_T, __FUNCTION__)) {\n";
+    $setters_impl .= "\t\t$class_name_members_t m = $Xclass(Self);\n";
     $setters_impl .= "\t\tm->$v = value;\n";
     $setters_impl .= "\t\treturn TB_OK;\n\t}\n\treturn TB_KO;\n}\n#endif\n\n";
 
     $getters_impl .= "#ifdef BEWARE_A_STUPID_CODE_GENERATOR_DONE_THIS\n";
 		$getters_impl .= "$Members{$v}{type} $fnc_prefix"."get".$v."($typedef Self) {\n";
-    $getters_impl .= "\t if(tb_valid(Self, $typedef, __FUNCTION__)) {\n";
-    $getters_impl .= "\t\t($class_name_members_t) m = $Xclass(Self);\n";
+    $getters_impl .= "\t if(tb_valid(Self, $type_tag_T, __FUNCTION__)) {\n";
+    $getters_impl .= "\t\t$class_name_members_t m = $Xclass(Self);\n";
     $getters_impl .= "\t\treturn m->$v;\n\t}\n";
     $getters_impl .= "\treturn /*some_big_bad_err_value*/\n}\n#endif\n\n";
 

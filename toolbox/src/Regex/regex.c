@@ -1,5 +1,5 @@
 //========================================================================
-// 	$Id: regex.c,v 1.2 2004/06/08 20:30:59 plg Exp $
+// 	$Id: regex.c,v 1.3 2004/07/01 21:39:59 plg Exp $
 //========================================================================
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -132,6 +132,7 @@ retcode_t tb_matchRegex(String_t string, char *regex, int options) {
 			retval = TB_KO;
 		}
 
+		tb_xfree(re);
 		if(table) tb_xfree(table);
 	}
   return retval;
@@ -273,6 +274,7 @@ int tb_getRegex(Vector_t  V, String_t  Str, char *regex, int options) {
 			}
 		} while(multi);
 
+		tb_xfree(re);
 		if(table) tb_xfree(table);
 
 		return tb_getSize(V);
@@ -468,6 +470,7 @@ int tb_Sed(char *search, char *replace, String_t  text, int options ) {
 		}
 		if(repl) tb_Free(repl);
 
+		tb_xfree(re);
 		if(table) tb_xfree(table);
 
 		return cnt;

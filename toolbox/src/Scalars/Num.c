@@ -1,5 +1,5 @@
 //------------------------------------------------------------------
-// $Id: Num.c,v 1.4 2004/06/15 15:08:27 plg Exp $
+// $Id: Num.c,v 1.5 2004/07/01 21:43:12 plg Exp $
 //------------------------------------------------------------------
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -180,7 +180,6 @@ static Num_t tb_num_new(int val) {
 
 static void *tb_num_free(Num_t N) {
 	tb_freeMembers(N);
-	tb_freeMembers(N);
 	N->isA = TB_NUM;
 	return tb_getParentMethod(N, OM_FREE);
 }
@@ -243,8 +242,12 @@ static Num_t tb_num_unmarshall(XmlElt_t xml_entity) {
 		tb_warn("tb_num_unmarshall: not an int Elmt\n");
 		return NULL;
 	}
-
-	N = tb_Num(S2int(XELT_getText(tb_Get(XELT_getChildren(xml_entity), 0))));
+	XmlElt_t Xe = XELT_getFirstChild(xml_entity);
+	if(Xe != NULL) {
+		N = tb_Num(tb_toInt(XELT_getText(Xe)));
+	} else {
+		N = tb_Num(0); // we must have a default, anyway
+	}
 
 	return N;
 }

@@ -1,5 +1,5 @@
 //========================================================================
-// 	$Id: Server.c,v 1.1 2004/05/12 22:04:49 plg Exp $
+// 	$Id: Server.c,v 1.2 2004/07/01 21:38:23 plg Exp $
 //========================================================================
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -24,7 +24,7 @@
 #endif
 
 
-#define WITH_SOCK_ACL
+// #define WITH_SOCK_ACL FIXME: not ready for prime-time + fix bpt_newNode leak first
 
 #include "tb_global.h"
 
@@ -51,7 +51,9 @@
 #include <stdlib.h>
 
 #include "Socket.h"
+#ifdef WITH_SOCK_ACL
 #include "Sock_ACL.h"
+#endif
 #include "Toolbox.h"
 #include "Composites.h"
 #include "Memory.h"
@@ -188,9 +190,11 @@ static retcode_t tb_initSockServer_IP(Socket_t O,
 	Serv->callback    = callback;
 	Serv->args        = cb_args;
 	Serv->max_threads = 100; // default
+#ifdef WITH_SOCK_ACL
 	// Serv->acl->use_acl defaults to 0 until you mess with acl
 	Serv->acl         = _new_sock_acl();
 	pthread_mutex_init(&(Serv->acl->mtx), NULL);
+#endif
 
 	pthread_mutex_init(&(Serv->shutdown_mtx), NULL);
 	pthread_cond_init(&(Serv->shutdown_cnd), NULL);
@@ -608,14 +612,16 @@ void *spawner(void *arg) {
   pthread_cond_t  *cond   = ((spawn_args *)arg)->cond; 
   int t, *nb              = ((spawn_args *)arg)->nb;
 	Socket_t S              = (Socket_t )((spawn_args *)arg)->So;
-	Socket_t Parent         = (Socket_t )((spawn_args *)arg)->Parent;
   int (*fnc)(Socket_t)    = (XServer(S))->callback;
   int rc;
+#ifdef WITH_SOCK_ACL
+	Socket_t Parent         = (Socket_t )((spawn_args *)arg)->Parent;
 	sock_server_t Srv       = XServer(Parent);
 	freq_acl_t F;
-	struct sockaddr saddr;
 	socklen_t slen = sizeof(saddr);
 	char *name = NULL;;
+	struct sockaddr saddr;
+#endif
 
   t = *nb;
   
@@ -626,6 +632,7 @@ void *spawner(void *arg) {
   (*nb)--;
   pthread_cond_signal(cond);
 
+#ifdef WITH_SOCK_ACL
 	if( Srv->acl->use_acl ) {
 		if(getsockname(XSock(S)->sock, &saddr, &slen) == 0) {
 			name = (char *)inet_ntoa(((struct sockaddr_in *)(&saddr))->sin_addr);
@@ -647,6 +654,7 @@ void *spawner(void *arg) {
 		}
 		pthread_mutex_unlock(&Srv->acl->mtx);
 	}
+#endif
 
   pthread_mutex_unlock(mutex);
   tb_info( "tb_Accept: callback[fd:%d] exits w/ rc=%d\n", tb_getSockFD(S), rc);

@@ -1,3 +1,11 @@
+2004-06-16  Gatille Paul  <pge@xanadu>
+
+	* src/Objects/Serialisable_interface.c: 
+	extended tb_XmlUnMarshall to allow arbitrary (non-xmlrpc regular type) type to be unmarshalled (based on class name)
+
+	* include/classRegistry.h: 
+	move visibility of __class_idOf to public (to allow genric method searching from serialized)
+
 2004-06-15  Gatille Paul  <pge@xanadu>
 
 	* fixed quite all constructors to set Self->isA correctly before to call parent dtor 

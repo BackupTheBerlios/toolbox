@@ -1,4 +1,4 @@
-// $Id: string_test.c,v 1.2 2004/05/24 16:37:53 plg Exp $
+// $Id: string_test.c,v 1.3 2004/07/01 21:45:25 plg Exp $
 #ifdef __BUILD
 #undef __BUILD
 #endif
@@ -51,6 +51,9 @@ int main(int argc, char **argv) {
 	tb_profile("-testing tb_StrDel: [%s]\n", S2sz(S));
 	fprintf(stderr, "1,1:\t[%s]\n", S2sz(tb_StrDel(S, 1, 1)));
 	tb_Free(S);
+
+
+
 	S = tb_String("12345");
 	fprintf(stderr, "1,-1:\t[%s]\n", S2sz(tb_StrDel(S, 1, -1)));
 	tb_Free(S);
@@ -436,6 +439,9 @@ int main(int argc, char **argv) {
 	tb_warn("unquoted string: <%S>\n", tb_StrUnQuote(S));
 
 	tb_Free(S);
+
+	fm_Dump();
+	fm_dumpChunks();
 	
 	return 0;
 }

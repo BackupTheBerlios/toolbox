@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 2; indent-tabs-mode: t; c-basic-offset: 2 -*- */
 //======================================================
-// $Id: Hash.h,v 1.2 2004/05/24 16:37:51 plg Exp $
+// $Id: Hash.h,v 1.3 2004/07/01 21:37:01 plg Exp $
 //======================================================
 
 /* Copyright (c) 1999-2002, Paul L. Gatille. All rights reserved.

@@ -1,5 +1,5 @@
 //=======================================================
-// $Id: XmlRpc_util.c,v 1.5 2004/06/08 16:30:05 plg Exp $
+// $Id: XmlRpc_util.c,v 1.6 2004/07/01 21:46:43 plg Exp $
 //=======================================================
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -159,8 +159,8 @@ int XRpc_sendCall(XmlRpc_t Xr, /*Uri_t Dest*/ Socket_t So, char *func, ...) {
 		Iterator_t It      = tb_Iterator(XELT_getChildren(XDOC_getRoot(Sig)));
 		if(It) {
 			va_list parms;
-			XmlDoc_t ResponseDoc;
-			XmlElt_t Response;
+			XmlDoc_t ResponseDoc = NULL;
+			XmlElt_t Response    = NULL;
 
 			Vector_t outVector = tb_Vector();
 			String_t Request   = tb_String("%s", "<?xml version=\"1.0\"?>\n<methodCall>\n");
@@ -196,8 +196,8 @@ int XRpc_sendCall(XmlRpc_t Xr, /*Uri_t Dest*/ Socket_t So, char *func, ...) {
 		
 			tb_StrAdd(Request, -1, "  </params>\n");
 			tb_StrAdd(Request, -1, "</methodCall>\n");
-
-			fprintf(stderr, "%s", tb_toStr(Request));
+			
+			if(tb_errorlevel >TB_WARN) {fprintf(stderr, "%s", tb_toStr(Request));}
 
 			//		So = Uri_openIOChannel(Dest);
 			rc = tb_writeSock(So, tb_toStr(Request));
@@ -210,10 +210,12 @@ int XRpc_sendCall(XmlRpc_t Xr, /*Uri_t Dest*/ Socket_t So, char *func, ...) {
 				while(tb_readSock(So, Reply, MAX_BUFFER) >0);
 
 				ResponseDoc = tb_XmlDoc(tb_toStr(Reply));
-				Response    = XDOC_getRoot(ResponseDoc);
+				if(ResponseDoc != NULL) {
+					Response    = XDOC_getRoot(ResponseDoc);
+				}
 				tb_Free(Reply);
 
-				if(tb_StrEQ(XELT_getName(Response), "methodResponse")) {
+				if(Response && tb_StrEQ(XELT_getName(Response), "methodResponse")) {
 					Vector_t Params = XELT_getChildren(tb_Get(XELT_getChildren(Response), 0));
 
 					if(tb_StrEQ(XELT_getName(tb_Get(Params,0)), "fault")) {
@@ -311,7 +313,7 @@ void XRpc_receiveCall(Socket_t So) {
 
 	while(tb_readSock(So, Request, MAX_BUFFER)>0);
 
-	fprintf(stderr, "XRpc_receiveCall: <%s>\n", tb_toStr(Request));
+	if(tb_errorlevel >TB_WARN) {fprintf(stderr, "XRpc_receiveCall: <%s>\n", tb_toStr(Request)); }
 
 	if(tb_getSize(Request) == 0) {
 		tb_Free(Request);
@@ -328,10 +330,12 @@ void XRpc_receiveCall(Socket_t So) {
 	}
 
 	if((Query      = XDOC_getRoot(QueryDoc)) == NULL) {
+		tb_Free(QueryDoc);
 		XRpc_makeFaultResponse(Reply, XMLRPC_FAULT_NO_SUCH_CALL);
 		goto send_reply;
 	}
 	if((methodName = XRpc_getQueryMethodName(Query)) == NULL) {
+		tb_Free(QueryDoc);
 		XRpc_makeFaultResponse(Reply, XMLRPC_FAULT_NO_SUCH_CALL);
 		goto send_reply;
 	}
@@ -374,7 +378,8 @@ void XRpc_receiveCall(Socket_t So) {
 					int style = XRpc_getParamStyle(tb_Value(SigParamIt));
 				
 					if(style == XMLRPC_PARAM_INOUT || style == XMLRPC_PARAM_OUT) {
-						tb_StrAdd(Reply, -1, "    <param><value>%S</value></param>\n", Tmp = tb_Marshall(tb_Value(argIt)));
+						tb_StrAdd(Reply, -1, "    <param><value>%S</value></param>\n", 
+											Tmp = tb_Marshall(tb_Value(argIt)));
 						tb_Free(Tmp);
 					} 
 
@@ -386,14 +391,17 @@ void XRpc_receiveCall(Socket_t So) {
 			}
 		} else {
 			XRpc_makeFaultResponse(Reply, rc);
+			tb_Free(SigParamIt);
+			if(argVector) tb_Free(argVector);
 		}
 	} else {
 		tb_warn("Sig not found\n");
 		XRpc_makeFaultResponse(Reply, XMLRPC_FAULT_NO_SUCH_CALL);
 	}
+	tb_Free(QueryDoc);
 
  send_reply:
-	if(tb_errorlevel >= TB_WARN) {
+	if(tb_errorlevel > TB_WARN) {
 		fprintf(stderr, "XmlRPC Reply: \n%s\n", tb_toStr(Reply));
 	}
 
