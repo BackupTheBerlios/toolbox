@@ -13,10 +13,25 @@ bin_PROGRAMS  = \
 	ssl_srv     \
 	ssl_cli     \
 	srv_test    \
+	xmlrpc_client    \
+	xmlrpc_server    \
+	date_test    \
 	marshall
 
 TESTS           = $(bin_PROGRAMS)
  
+xmlrpc_client_SOURCES       = xmlrpc_client.c
+xmlrpc_client_LDADD         = ../libtbx.la
+xmlrpc_client_LDFLAGS       = @ADD_LDFLAGS@ @ADD_BOOTSTRAP@ @ADD_LIBS@
+
+xmlrpc_server_SOURCES       = xmlrpc_server.c
+xmlrpc_server_LDADD         = ../libtbx.la
+xmlrpc_server_LDFLAGS       = @ADD_LDFLAGS@ @ADD_BOOTSTRAP@ @ADD_LIBS@
+
+date_test_SOURCES                = date_test.c
+date_test_LDADD                  = ../libtbx.la
+date_test_LDFLAGS                = @ADD_LDFLAGS@ @ADD_BOOTSTRAP@ @ADD_LIBS@
+
 marshall_SOURCES       = marshall.c
 marshall_LDADD         = ../libtbx.la
 marshall_LDFLAGS       = @ADD_LDFLAGS@ @ADD_BOOTSTRAP@ @ADD_LIBS@

@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 2; indent-tabs-mode: t; c-basic-offset: 2 -*- */
 //------------------------------------------------------------------
-// $Id: Date_impl.c,v 1.1 2004/05/12 22:04:53 plg Exp $
+// $Id: Date_impl.c,v 1.2 2004/05/13 22:07:05 plg Exp $
 //------------------------------------------------------------------
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -28,46 +28,54 @@
 #endif
 */
 
-#include "Toolbox.h"
+#include "Date_impl.h"
 #include "Memory.h"
 #include "Error.h"
-#include "Date.h"
-#include "Date_impl.h"
 #include "tb_ClassBuilder.h"
+#include "C_Castable_interface.h"
+#include "Serialisable_interface.h"
 
-int TB_DATE;
 
-static void *Date_free( Date_t Obj);
-//static  Date_t Date_clone(Date_t Obj);
-//static  void Date_dump(Date_t Obj);
-//static  Date_t Date_clear(Date_t Obj);
-//...
+static void   * Date_free    (Date_t This);
+static Date_t   Date_clone   (Date_t This);
+static void     Date_dump    (Date_t This, int level);
+static Date_t   Date_clear   (Date_t This);
+static int      Date_toInt   (Date_t This);
+static char   * Date_toStr   (Date_t This);
+
 
 void setup_Date_once(int OID);
 
 inline Date_members_t XDate(Date_t T) {
-	return (Date_members_t)((__members_t)tb_getMembers(T, DATE_T))->instance;
+	return (Date_members_t)((__members_t)tb_getMembers(T, TB_DATE))->instance;
 }
 
-pthread_once_t __init_Date_once = PTHREAD_ONCE_INIT;
-void init_Date_once() {
-	pthread_once(&__class_registry_init_once, tb_classRegisterInit);
-	// if you doesn't extends directly from a toolbox class, you must call your anscestor init
-	DATE_T = tb_registerNewClass("TB_DATE", TB_SCALAR, setup_Date_once);
-}
 
-void setup_Date_once(int OID) {
+void __build_date_once(int OID) {
 	/* OM_NEW and OM_FREE are mandatory methods */
 	tb_registerMethod(OID, OM_NEW,                    Date_new);
 	tb_registerMethod(OID, OM_FREE,                   Date_free);
 	/*  others are optionnal: this ones are common and shown as example */
-//	tb_registerMethod(OID, OM_CLONE,                  Date_clone);
-//	tb_registerMethod(OID, OM_DUMP,                   Date_dump);
-//	tb_registerMethod(OID, OM_CLEAR,                  Date_clear);
+	tb_registerMethod(OID, OM_CLONE,                  Date_clone);
+	tb_registerMethod(OID, OM_DUMP,                   Date_dump);
+	tb_registerMethod(OID, OM_CLEAR,                  Date_clear);
+
+	tb_implementsInterface(OID, "C_Castable", 
+												 &__c_castable_build_once, build_c_castable_once);
+	
+	tb_registerMethod(OID, OM_TOSTRING,     Date_toStr);
+	tb_registerMethod(OID, OM_TOINT,        Date_toInt);
+
+	tb_implementsInterface(OID, "Serialisable", 
+												 &__serialisable_build_once, build_serialisable_once);
+
+/* 	tb_registerMethod(OID, OM_MARSHALL,     Date_marshall); */
+/* 	tb_registerMethod(OID, OM_UNMARSHALL,   Date_unmarshall); */
+
 }
 
 
-Date_t dbg_Date(char *func, char *file, int line, char *iso8601) {
+Date_t dbg_tb_Date(char *func, char *file, int line, char *iso8601) {
 	set_tb_mdbg(func, file, line);
 	return Date_new(iso8601);
 }
@@ -87,7 +95,7 @@ Date_t dbg_Date(char *func, char *file, int line, char *iso8601) {
  * \ingroup DATE
  */
 
-Date_t Date(char *iso8601) {
+Date_t tb_Date(char *iso8601) {
 	return Date_new(iso8601);
 }
 
@@ -95,19 +103,26 @@ Date_t Date(char *iso8601) {
 
 Date_t Date_new(char *iso8601) {
 	tb_Object_t This;
-	pthread_once(&__init_Date_once, init_Date_once);
+	pthread_once(&__class_registry_init_once, tb_classRegisterInit);
 	Date_members_t m;
 	This =  tb_newParent(TB_DATE); 
 	
 	This->isA  = TB_DATE;
 
-
-
-	m = (Date_members_t)xcalloc(1, sizeof(struct Date_members));
+	m = (Date_members_t)tb_xcalloc(1, sizeof(struct Date_members));
 	This->members->instance = m;
 
 	if((m->absolute = iso8601_to_time(iso8601)) >0) {
-		localtime_r(&(m->absolute), m->broken_down);
+		localtime_r(&(m->absolute), &(m->broken_down));
+
+		snprintf(m->string, 20, "%d%02d%02dT%02d:%02d:%02d",
+						 m->broken_down.tm_year + 1900,
+						 m->broken_down.tm_mon,
+						 m->broken_down.tm_mday,
+						 m->broken_down.tm_hour,
+						 m->broken_down.tm_min,
+						 m->broken_down.tm_sec);
+		
 	}
 
 	if(fm->dbg) fm_addObject(This);
@@ -116,28 +131,52 @@ Date_t Date_new(char *iso8601) {
 }
 
 void *Date_free(Date_t Obj) {
-	if(tb_valid(Obj, DATE_T, __FUNCTION__)) {
+	fm_fastfree_on();
 
-		fm_fastfree_on();
-
-		tb_freeMembers(Obj);
-		fm_fastfree_off();
-		Obj->isA = DATE_T; // requiered for introspection (as we are unwinding dtors stack)
-    return tb_getParentMethod(Obj, OM_FREE);
-	}
-
-  return NULL;
+	tb_freeMembers(Obj);
+	fm_fastfree_off();
+	Obj->isA = TB_DATE; // requiered for introspection (as we are unwinding dtors stack)
+	return tb_getParentMethod(Obj, OM_FREE);
 }
 
-/*
+static Date_t Date_clear(Date_t This) {
+	Date_members_t m = XDate(This);
+	m->broken_down.tm_year  = 0;
+	m->broken_down.tm_mon   = 0;
+	m->broken_down.tm_mday  = 0;
+	m->broken_down.tm_hour  = 0;
+	m->broken_down.tm_min   = 0;
+	m->broken_down.tm_sec   = 0;
+	m->absolute = 0;
+	m->string[0]=0;
+	return This;
+}
+
 static Date_t Date_clone(Date_t This) {
+	return tb_Date(Date_toStr(This));
 }
-*/
 
-/*
-static void Date_dump(Date_t This) {
+static void Date_dump(Date_t This, int level) {
+	int i;
+	Date_members_t m = XDate(This);
+  for(i = 0; i<level; i++) fprintf(stderr, " ");
+	fprintf(stderr, 
+					"<TB_DATE ADDR=\"%p\" DATE=\"%s\" REFCNT=\"%d\" DOCKED=\"%d\">\n",
+					m, m->string,
+					This->refcnt, 
+					This->docked);
 }
-*/
 
 
 
+static char * Date_toStr(Date_t This) {
+	return XDate(This)->string;
+}
+
+static int Date_toInt(Date_t This) {
+	if(tb_valid(This, TB_DATE, __FUNCTION__)) {
+		Date_members_t m = XDate(This);
+		return m->absolute;
+	}
+	return 0;
+}

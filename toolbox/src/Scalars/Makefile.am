@@ -12,7 +12,8 @@ libScalars_la_SOURCES  = \
 	Raw.c        \
 	Num.c        \
 	C_Castable_interface.c      \
-	Pointer.c    
+	Pointer.c                   \
+	Date.c Date_impl.c   
 libScalars_la_LIBADD   = 
 libScalars_la_LDFLAGS  = 
 

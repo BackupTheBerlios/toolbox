@@ -1,3 +1,8 @@
+2004-05-14  Paul Gatille  <pol@xenic>
+
+	* src/Scalars/Date.c 
+	Started to add Date_t class. Some methods are still needed (mainly un/marshalling for xmlrpc).
+
 2004-05-11  Paul Gatille  <pge@xanadu>
 
 	* <internal change only (should be no API disruption) >

@@ -1,5 +1,5 @@
 //============================================================
-// 	$Id: Toolbox.h,v 1.1 2004/05/12 22:04:48 plg Exp $
+// 	$Id: Toolbox.h,v 1.2 2004/05/13 22:05:56 plg Exp $
 //============================================================
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -20,7 +20,7 @@
 #define __TOOLBOX_H
 
 #include <limits.h>
-
+#include <time.h>
 #include <tb_Errno.h>
 
 #ifndef _POSIX_PTHREAD_SEMANTICS
@@ -210,13 +210,14 @@ extern TB_LOGLEVELS tb_errorlevel;
 #define TB_RAW            5
 #define TB_NUM            6
 #define TB_POINTER        7
-#define TB_HASH           8
-#define TB_VECTOR         9
-#define TB_DICT          10
-#define TB_SOCKET        11
-#define TB_ITERATOR      12
-#define TB_XMLDOC        13
-#define TB_XMLELT        14
+#define TB_DATE           8
+#define TB_HASH           9
+#define TB_VECTOR        10
+#define TB_DICT          11
+#define TB_SOCKET        12
+#define TB_ITERATOR      13
+#define TB_XMLDOC        14
+#define TB_XMLELT        15
 
 // ---------< Types >------------------------------------------
 
@@ -294,6 +295,12 @@ typedef Scalar_t              Num_t;
  * @see Scalar_t, tb_Pointer
  */
 typedef Scalar_t              Pointer_t;
+
+/**
+ * Stores a datetime value
+ * @see Scalar_t, tb_Date
+ */
+typedef Scalar_t              Date_t;
 
 /**
  * same as String_t, but allow raw data to be stored (including 0x00 bytes)
@@ -545,6 +552,19 @@ void      tb_hexdump                 (char *bin, int len);
 
 int        strsz           (char *s); //FIXME: to be deprecated
 
+// ---------Date_t Methods------------------------------------------
+
+// constructors
+Date_t       tb_Date           (char *iso8601);
+Date_t       Date_new          (char *iso8601);
+// manipulators (change self) 
+retcode_t    Dt_setAbsolute    (Date_t T, time_t val);
+retcode_t    Dt_setBrokenDown  (Date_t T, struct tm *val);
+// inspectors (don't change self) 
+time_t       Dt_getAbsolute    (Date_t T);
+struct tm  * Dt_getBrokenDown  (Date_t T, struct tm *val);
+int          tb_DateCmp        (Date_t Dt1, Date_t Dt2);
+time_t       iso8601_to_time   (char *iso8601);
 
 // ---------Vector_t Methods------------------------------------------
 
@@ -555,9 +575,9 @@ retcode_t       tb_Unshift    (Vector_t V, tb_Object_t data);
 tb_Object_t     tb_Shift      (Vector_t V);
 char         ** tb_toArgv     (Vector_t V);
 void            tb_freeArgv   (char **Argv);
-Vector_t   tb_Sort       (Vector_t V, 
-													int (*cmp)(tb_Object_t, tb_Object_t)); 
-Vector_t   tb_Reverse    (Vector_t V);
+Vector_t        tb_Sort       (Vector_t V, 
+															 int (*cmp)(tb_Object_t, tb_Object_t)); 
+Vector_t        tb_Reverse    (Vector_t V);
 
 #define TB_MRG_MOVE      1
 #define TB_MRG_COPY      2
@@ -653,32 +673,32 @@ enum acl_list {
 };
 typedef enum acl_list acl_list_t;
 
-int      tb_sockACL                         (Socket_t S, int use_acl);
-int      tb_sockACL_ADD                     (Socket_t S, acl_list_t list, char *pattern); 
-int      tb_sockACL_DEL                     (Socket_t S, acl_list_t list, char *pattern); 
-int      tb_sockACL_CLEAR                   (Socket_t S, acl_list_t list); 
-Vector_t tb_sockACL_LIST                    (Socket_t S, acl_list_t list);
-int      tb_sockACL_set_global_max_hps      (Socket_t S, int max_hps);
-int      tb_sockACL_get_global_max_hps      (Socket_t S);
-int      tb_sockACL_set_global_max_simult   (Socket_t S, int max_simult);
-int      tb_sockACL_get_global_max_simult   (Socket_t S);
-int      tb_sockACL_set_host_max_hps        (Socket_t S, int max_hps);
-int      tb_sockACL_get_host_max_hps        (Socket_t S);
-int      tb_sockACL_set_host_max_simult     (Socket_t S, int max_simult);
-int      tb_sockACL_get_host_max_simult     (Socket_t S);
+int       tb_sockACL                         (Socket_t S, int use_acl);
+int       tb_sockACL_ADD                     (Socket_t S, acl_list_t list, char *pattern); 
+int       tb_sockACL_DEL                     (Socket_t S, acl_list_t list, char *pattern); 
+int       tb_sockACL_CLEAR                   (Socket_t S, acl_list_t list); 
+Vector_t  tb_sockACL_LIST                    (Socket_t S, acl_list_t list);
+int       tb_sockACL_set_global_max_hps      (Socket_t S, int max_hps);
+int       tb_sockACL_get_global_max_hps      (Socket_t S);
+int       tb_sockACL_set_global_max_simult   (Socket_t S, int max_simult);
+int       tb_sockACL_get_global_max_simult   (Socket_t S);
+int       tb_sockACL_set_host_max_hps        (Socket_t S, int max_hps);
+int       tb_sockACL_get_host_max_hps        (Socket_t S);
+int       tb_sockACL_set_host_max_simult     (Socket_t S, int max_simult);
+int       tb_sockACL_get_host_max_simult     (Socket_t S);
 
-retcode_t tb_stopServer     (Socket_t O);
-void   *tb_getServArgs     (Socket_t O);
-int     tb_getSockFD       (Socket_t O);
-retcode_t tb_setServMAXTHR   (Socket_t O, int max);
-int     tb_getServMAXTHR   (Socket_t O);
-retcode_t tb_setSockTO       (Socket_t S, long int sec, long int usec);
-retcode_t tb_getSockTO       (Socket_t S, long int *sec, long int *usec);
-int     tb_getSockStatus   (Socket_t S);
-void *tb_Accept              (void * S); // arg must be a tb_Socket
-int       tb_readSock     (Socket_t So, String_t msg, int len);
-int       tb_readSockLine (Socket_t O, String_t msg);
-int       tb_writeSock    (Socket_t So, char *msg);
+retcode_t tb_stopServer                      (Socket_t O);
+void     *tb_getServArgs                     (Socket_t O);
+int       tb_getSockFD                       (Socket_t O);
+retcode_t tb_setServMAXTHR                   (Socket_t O, int max);
+int       tb_getServMAXTHR                   (Socket_t O);
+retcode_t tb_setSockTO                       (Socket_t S, long int sec, long int usec);
+retcode_t tb_getSockTO                       (Socket_t S, long int *sec, long int *usec);
+int       tb_getSockStatus                   (Socket_t S);
+void     *tb_Accept                          (void * S); // arg must be a tb_Socket
+int       tb_readSock                        (Socket_t So, String_t msg, int len);
+int       tb_readSockLine                    (Socket_t O, String_t msg);
+int       tb_writeSock                       (Socket_t So, char *msg);
 
 #define CLOSE_END          1
 #define DONT_CLOSE         0
@@ -689,25 +709,24 @@ int       tb_writeSock    (Socket_t So, char *msg);
 #define XELT_TYPE_CDATA     2
 #define XELT_TYPE_NODE      3
 
-XmlDoc_t tb_XmlDoc                  (char *xmltext);
-String_t XDOC_to_xml                (XmlDoc_t Doc);
-XmlElt_t XDOC_getRoot               (XmlDoc_t X);
-retcode_t  XDOC_setRoot               (XmlDoc_t Doc, XmlElt_t newRoot);
-XmlElt_t tb_XmlElt                  (int ElmType, XmlElt_t parent,
-																		 char *name, char **attr);
-
-Vector_t XELT_getChildren           (XmlElt_t X);
-XmlElt_t XELT_getParent             (XmlElt_t X);
-String_t XELT_getName               (XmlElt_t X);
-int      XELT_getType               (XmlElt_t X);
-String_t XELT_getText               (XmlElt_t X);
-tb_Object_t  XELT_getAttribute         (XmlElt_t X, char *attributeName);
-Hash_t   XELT_getAttributes         (XmlElt_t X);
-XmlElt_t tb_XmlTextElt              (XmlElt_t parent, char *text);
-XmlElt_t tb_XmlNodeElt              (XmlElt_t parent, char *name, Hash_t Attributes);
-retcode_t  XELT_addAttributes         (XmlElt_t X, Hash_t newAttr);
-int      XELT_setName               (XmlElt_t X, char *name);
-int      XELT_setText               (XmlElt_t X, char *text);
+XmlDoc_t     tb_XmlDoc                  (char *xmltext);
+String_t     XDOC_to_xml                (XmlDoc_t Doc);
+XmlElt_t     XDOC_getRoot               (XmlDoc_t X);
+retcode_t    XDOC_setRoot               (XmlDoc_t Doc, XmlElt_t newRoot);
+XmlElt_t     tb_XmlElt                  (int ElmType, XmlElt_t parent,
+																				 char *name, char **attr);
+Vector_t     XELT_getChildren           (XmlElt_t X);
+XmlElt_t     XELT_getParent             (XmlElt_t X);
+String_t     XELT_getName               (XmlElt_t X);
+int          XELT_getType               (XmlElt_t X);
+String_t     XELT_getText               (XmlElt_t X);
+tb_Object_t  XELT_getAttribute          (XmlElt_t X, char *attributeName);
+Hash_t       XELT_getAttributes         (XmlElt_t X);
+XmlElt_t     tb_XmlTextElt              (XmlElt_t parent, char *text);
+XmlElt_t     tb_XmlNodeElt              (XmlElt_t parent, char *name, Hash_t Attributes);
+retcode_t    XELT_addAttributes         (XmlElt_t X, Hash_t newAttr);
+int          XELT_setName               (XmlElt_t X, char *name);
+int          XELT_setText               (XmlElt_t X, char *text);
 
 //-------< Regex >-------------------------------------------------------
 

@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 2; indent-tabs-mode: t; c-basic-offset: 2 -*- */
 //======================================================
-// $Id: classRegistry.h,v 1.1 2004/05/12 22:04:48 plg Exp $
+// $Id: classRegistry.h,v 1.2 2004/05/13 22:05:56 plg Exp $
 //======================================================
 
 // created on Thu Aug  1 15:23:25 2002
@@ -111,6 +111,7 @@ void __build_string_once        (int);
 void __build_raw_once           (int);
 void __build_num_once           (int);
 void __build_pointer_once       (int);
+void __build_date_once          (int);
 void __build_hash_once          (int);
 void __build_vector_once        (int);
 void __build_dict_once          (int);
