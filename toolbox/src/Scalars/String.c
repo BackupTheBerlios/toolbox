@@ -1,5 +1,5 @@
 //------------------------------------------------------------------
-// $Id: String.c,v 1.1 2004/05/12 22:04:52 plg Exp $
+// $Id: String.c,v 1.2 2004/05/14 15:21:14 plg Exp $
 //------------------------------------------------------------------
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -60,6 +60,8 @@ void __build_string_once(int OID) {
 	tb_registerMethod(OID, OM_CLONE,        tb_string_clone);
 	tb_registerMethod(OID, OM_DUMP,         tb_string_dump);
 	tb_registerMethod(OID, OM_CLEAR,        tb_string_clear);
+
+	tb_registerMethod(OID, OM_STRINGIFY,    S2sz); // fixme: should be escaped ("\"")
 
 	tb_implementsInterface(OID, "C_Castable", 
 												 &__c_castable_build_once, build_c_castable_once);
@@ -292,19 +294,15 @@ String_t tb_string_new(int len, char *data) {
 
 void tb_string_marshall(String_t marshalled, String_t S, int level) {
 	char indent[level+1];
-	if(tb_valid(S, TB_STRING, __FUNCTION__) &&
-		 tb_valid(marshalled, TB_STRING, __FUNCTION__)) 
-		{
-			string_members_t m = XStr(S);
-			memset(indent, ' ', level);
-			indent[level] = 0;
-
-			if(m->size >0) {
-				tb_StrAdd(marshalled, -1, "%s<string>%s</string>\n", indent, (char *)m->data);
-			} else {
-				tb_StrAdd(marshalled, -1, "%s<string/>\n", indent);
-			}
-		}
+	string_members_t m = XStr(S);
+	memset(indent, ' ', level);
+	indent[level] = 0;
+	
+	if(m->size >0) {
+		tb_StrAdd(marshalled, -1, "%s<string>%s</string>\n", indent, (char *)m->data);
+	} else {
+		tb_StrAdd(marshalled, -1, "%s<string/>\n", indent);
+	}
 }
 
 

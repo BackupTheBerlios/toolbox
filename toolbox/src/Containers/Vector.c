@@ -1,5 +1,5 @@
 //======================================================
-// $Id: Vector.c,v 1.1 2004/05/12 22:04:50 plg Exp $
+// $Id: Vector.c,v 1.2 2004/05/14 15:23:09 plg Exp $
 //======================================================
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -56,6 +56,8 @@ static retcode_t   tb_vector_replace      (Vector_t V, tb_Object_t data, int ndx
 static retcode_t   tb_vector_insert       (Vector_t V, tb_Object_t data, int ndx);
 static retcode_t   tb_vector_remove       (Vector_t V, int ndx) ;
 
+static char      * tb_vector_stringify    (Vector_t V);
+
 static void        tb_vector_marshall     (String_t marshalled, Vector_t V, int level);
 static Vector_t    tb_vector_unmarshall   (XmlElt_t xml_element);
 
@@ -84,6 +86,8 @@ void __build_vector_once(int OID) {
 	tb_registerMethod(OID, OM_GOLAST,                 v_goLast);
 	tb_registerMethod(OID, OM_CURKEY,                 v_curKey);
 	tb_registerMethod(OID, OM_CURVAL,                 v_curVal);
+
+	tb_registerMethod(OID, OM_STRINGIFY,              tb_vector_stringify);
 
 	tb_implementsInterface(OID, "Serialisable", 
 												 &__serialisable_build_once, build_serialisable_once);
@@ -145,6 +149,8 @@ static Vector_t tb_vector_new(tb_Object_t This) {
 	m->start_sz = m->nb_slots = VECTOR_DEFAULT_START;
 	m->step_sz  = VECTOR_DEFAULT_STEP;
   m->data = tb_xcalloc(1, (m->nb_slots * sizeof(tb_Object_t))); 
+	m->Stringified = tb_String(NULL);
+	TB_DOCK(m->Stringified);
 
 	if(fm->dbg) fm_addObject(This);
 
@@ -152,82 +158,69 @@ static Vector_t tb_vector_new(tb_Object_t This) {
 }
 
 static void *tb_vector_free(Vector_t V) {
-	no_error;
-
-	if(tb_valid(V, TB_VECTOR, __FUNCTION__)) {
-		int i;
-		vector_members_t m = XVector(V);
-		fm_fastfree_on();
-		for(i = 0; i <m->size; i++) {
-			TB_UNDOCK(m->data[i]);
-			tb_Free(m->data[i]);
-		}
-		tb_xfree(m->data);
-		tb_freeMembers(V);
-		fm_fastfree_off();
-
-		return tb_getParentMethod(V, OM_FREE);
+	int i;
+	vector_members_t m = XVector(V);
+	fm_fastfree_on();
+	for(i = 0; i <m->size; i++) {
+		TB_UNDOCK(m->data[i]);
+		tb_Free(m->data[i]);
 	}
-	return NULL;
+	TB_UNDOCK(m->Stringified);
+	tb_Free(m->Stringified);
+	tb_xfree(m->data);
+	tb_freeMembers(V);
+	fm_fastfree_off();
+
+	return tb_getParentMethod(V, OM_FREE);
 }
 
 
 static retcode_t tb_vector_insert(Vector_t V, tb_Object_t data, int ndx) {
-	no_error;
-	if(tb_valid(V, TB_VECTOR, __FUNCTION__) &&
-		 tb_valid(data, TB_OBJECT, __FUNCTION__)) {
+	vector_members_t m = XVector(V);
 
-		vector_members_t m = XVector(V);
-
-		if(ndx < 0) ndx = m->size - TB_ABS(ndx);
-		if(ndx > m->size) {
-			tb_error("tb_vector_insert: unbound ndx (%d) sz=%d",
-							 ndx, m->size); 
-			set_tb_errno(TB_ERR_OUT_OF_BOUNDS);
-			return TB_ERR;
-		}
-
-		m->size++;
-		if(m->size > m->nb_slots) {
-			m->nb_slots += m->step_sz;
-			m->data = tb_xrealloc(m->data, (m->nb_slots * sizeof(tb_Object_t)));
-			assert(m->data != NULL);
-		}
-		memmove(m->data + (ndx + 1) * sizeof(tb_Object_t),
-						m->data + ndx * sizeof(tb_Object_t),
-						sizeof(tb_Object_t));
-		m->data[ndx] = data;
-		TB_DOCK(data);
-
-		return TB_OK;
+	if(ndx < 0) ndx = m->size - TB_ABS(ndx);
+	if(ndx > m->size) {
+		tb_error("tb_vector_insert: unbound ndx (%d) sz=%d",
+						 ndx, m->size); 
+		set_tb_errno(TB_ERR_OUT_OF_BOUNDS);
+		return TB_ERR;
 	}
-	return TB_ERR;
+
+	m->size++;
+	if(m->size > m->nb_slots) {
+		m->nb_slots += m->step_sz;
+		m->data = tb_xrealloc(m->data, (m->nb_slots * sizeof(tb_Object_t)));
+		assert(m->data != NULL);
+	}
+	memmove(m->data + (ndx + 1) * sizeof(tb_Object_t),
+					m->data + ndx * sizeof(tb_Object_t),
+					sizeof(tb_Object_t));
+	m->data[ndx] = data;
+	TB_DOCK(data);
+
+	return TB_OK;
 }
 
 static retcode_t tb_vector_replace(Vector_t V, tb_Object_t data, int ndx) {
-	no_error;
-	if(tb_valid(V, TB_VECTOR, __FUNCTION__)) {
-		tb_Object_t O;
-		vector_members_t m = XVector(V);
+	tb_Object_t O;
+	vector_members_t m = XVector(V);
 
-		if(ndx < 0) ndx = m->size - TB_ABS(ndx);
-		if(!(ndx < m->size)) {
-			tb_error("tb_vector_add: unbound ndx (%d) sz=%d",
-							 ndx, m->size); 
-			set_tb_errno(TB_ERR_OUT_OF_BOUNDS);
-			return TB_ERR;
-		}
-
-		if((O = m->data[ndx]) != NULL) {
-			TB_UNDOCK(O);
-			tb_Free(O);
-		}
-		m->data[ndx] = data;
-		TB_DOCK(data);
-
-		return TB_OK;
+	if(ndx < 0) ndx = m->size - TB_ABS(ndx);
+	if(!(ndx < m->size)) {
+		tb_error("tb_vector_add: unbound ndx (%d) sz=%d",
+						 ndx, m->size); 
+		set_tb_errno(TB_ERR_OUT_OF_BOUNDS);
+		return TB_ERR;
 	}
-	return TB_ERR;
+
+	if((O = m->data[ndx]) != NULL) {
+		TB_UNDOCK(O);
+		tb_Free(O);
+	}
+	m->data[ndx] = data;
+	TB_DOCK(data);
+
+	return TB_OK;
 }
 
 
@@ -388,118 +381,98 @@ tb_Object_t tb_Shift(Vector_t V) {
 
 
 static tb_Object_t tb_vector_take(Vector_t V, int ndx) {
-	no_error;
-	if(tb_valid(V, TB_VECTOR, __FUNCTION__)) {
-		tb_Object_t obj = NULL;
-		vector_members_t m = XVector(V);
+	tb_Object_t obj = NULL;
+	vector_members_t m = XVector(V);
 	
-		if(ndx < 0) ndx = m->size - TB_ABS(ndx);
-		if(!(ndx < m->size)) {
-			tb_error("tb_vector_take: unbound ndx (%d) sz=%d",
-							 ndx, m->size); 
-			set_tb_errno(TB_ERR_OUT_OF_BOUNDS);
-			return NULL;
-		}
-
-		obj = m->data[ndx];
-		TB_UNDOCK(obj);
-		m->size--;
-		memmove(m->data + ndx, m->data + ndx +1, 
-						((m->size - ndx) * sizeof(tb_Object_t)));
-		if((m->nb_slots - m->size) >= (m->step_sz *2)) {
-			m->nb_slots = m->size + m->step_sz;
-			m->data = tb_xrealloc(m->data, (m->nb_slots * sizeof(tb_Object_t))); 
-		}
-
-		return obj;
+	if(ndx < 0) ndx = m->size - TB_ABS(ndx);
+	if(!(ndx < m->size)) {
+		tb_error("tb_vector_take: unbound ndx (%d) sz=%d",
+						 ndx, m->size); 
+		set_tb_errno(TB_ERR_OUT_OF_BOUNDS);
+		return NULL;
 	}
-	return NULL;
+
+	obj = m->data[ndx];
+	TB_UNDOCK(obj);
+	m->size--;
+	memmove(m->data + ndx, m->data + ndx +1, 
+					((m->size - ndx) * sizeof(tb_Object_t)));
+	if((m->nb_slots - m->size) >= (m->step_sz *2)) {
+		m->nb_slots = m->size + m->step_sz;
+		m->data = tb_xrealloc(m->data, (m->nb_slots * sizeof(tb_Object_t))); 
+	}
+
+	return obj;
 }
 
 static retcode_t tb_vector_remove(Vector_t V, int ndx) {
-	no_error;
-	if(tb_valid(V, TB_VECTOR, __FUNCTION__)) {
-		tb_Object_t obj;
-		vector_members_t m = XVector(V);
+	tb_Object_t obj;
+	vector_members_t m = XVector(V);
 
-		if(ndx < 0) ndx = m->size - TB_ABS(ndx);
-		if(!(ndx < m->size)) {
-			tb_error("tb_vector_remove(%p): unbound ndx (%d) sz=%d",
-							 V, ndx, m->size); 
-			set_tb_errno(TB_ERR_OUT_OF_BOUNDS);
-			return TB_ERR;
-		}
-
-		if((obj = tb_vector_take(V, ndx))) {
-			tb_Free(obj);
-		}
-		return TB_OK;
+	if(ndx < 0) ndx = m->size - TB_ABS(ndx);
+	if(!(ndx < m->size)) {
+		tb_error("tb_vector_remove(%p): unbound ndx (%d) sz=%d",
+						 V, ndx, m->size); 
+		set_tb_errno(TB_ERR_OUT_OF_BOUNDS);
+		return TB_ERR;
 	}
-	return TB_ERR;
+
+	if((obj = tb_vector_take(V, ndx))) {
+		tb_Free(obj);
+	}
+	return TB_OK;
 }
 
 
 static tb_Object_t tb_vector_get(Vector_t V, int ndx) {
-	no_error;
-	if(tb_valid(V, TB_VECTOR, __FUNCTION__)) {
-		tb_Object_t rez = NULL;
-		vector_members_t m = XVector(V);
+	tb_Object_t rez = NULL;
+	vector_members_t m = XVector(V);
 
-		if(ndx < 0) ndx = m->size - TB_ABS(ndx);
-		if(!(ndx < m->size)) {
-			tb_error("tb_vector_get(%p): unbound ndx (%d) sz=%d",
-							 V, ndx, m->size); 
-			set_tb_errno(TB_ERR_OUT_OF_BOUNDS);
-			return NULL;
-		}
-
-		if(ndx < m->size && ndx >= 0) rez = m->data[ndx];
-
-		return rez;
+	if(ndx < 0) ndx = m->size - TB_ABS(ndx);
+	if(!(ndx < m->size)) {
+		tb_error("tb_vector_get(%p): unbound ndx (%d) sz=%d",
+						 V, ndx, m->size); 
+		set_tb_errno(TB_ERR_OUT_OF_BOUNDS);
+		return NULL;
 	}
-	return NULL;
+
+	if(ndx < m->size && ndx >= 0) rez = m->data[ndx];
+
+	return rez;
 }
 
 
 static tb_Object_t tb_vector_clear(Vector_t V) {
-	no_error;
-	if(tb_valid(V, TB_VECTOR, __FUNCTION__)) {
-		int i;
-		vector_members_t m = XVector(V);
+	int i;
+	vector_members_t m = XVector(V);
 	
-		if(m->size == 0) return V;
+	if(m->size == 0) return V;
 
-		fm_fastfree_on();
-		for(i = 0; i < m->size; i++){
-			TB_UNDOCK(m->data[i]);
-			tb_Free(m->data[i]);
-		}
-		tb_xfree(m->data);
-		fm_fastfree_off();
-		m->data = tb_xcalloc(1, (m->start_sz * sizeof(tb_Object_t))); 
-		m->nb_slots = m->start_sz;
-		m->size = 0;
-
-		return V;
+	fm_fastfree_on();
+	for(i = 0; i < m->size; i++){
+		TB_UNDOCK(m->data[i]);
+		tb_Free(m->data[i]);
 	}
-	return NULL;
+	tb_xfree(m->data);
+	fm_fastfree_off();
+	m->data = tb_xcalloc(1, (m->start_sz * sizeof(tb_Object_t))); 
+	m->nb_slots = m->start_sz;
+	m->size = 0;
+
+	return V;
 }
 
 static Vector_t tb_vector_clone(Vector_t V) {
-	no_error;
-	if(tb_valid(V, TB_VECTOR, __FUNCTION__)) {
-		int i; 
-		Vector_t clone;
-		vector_members_t m = XVector(V);
+	int i; 
+	Vector_t clone;
+	vector_members_t m = XVector(V);
 
-		clone = tb_Vector();
-		for(i = 0; i < m->size; i++) {
-			tb_Push(clone, tb_Clone(m->data[i]));
-		}
-
-		return clone;
+	clone = tb_Vector();
+	for(i = 0; i < m->size; i++) {
+		tb_Push(clone, tb_Clone(m->data[i]));
 	}
-	return NULL;
+
+	return clone;
 }
 
 /** Copy a Vector of tb_Strings into an argv structure.
@@ -551,33 +524,30 @@ void tb_freeArgv(char **argv) {
 }
 
 static void tb_vector_dump(Vector_t V, int level) {
-	no_error;
-	if(tb_valid(V, TB_VECTOR, __FUNCTION__)) {
-		int i, sz;
-		vector_members_t m = XVector(V);
+	int i, sz;
+	vector_members_t m = XVector(V);
 
-		sz = m->size;
-		for(i = 0; i<level; i++) fprintf(stderr, " ");
-		if(m->size == 0) {
-			fprintf(stderr, 
-							"<TB_VECTOR SIZE=\"%d\" ADDR=\"%p\" DATA=\"%p\" REFCNT=\"%d\" DOCKED=\"%d\"/>\n",
-							sz, V, m->data, V->refcnt, V->docked);
-		} else {
-			fprintf(stderr, 
-							"<TB_VECTOR SIZE=\"%d\" ADDR=\"%p\" DATA=\"%p\" REFCNT=\"%d\" DOCKED=\"%d\">\n",
-							sz, V, m->data, V->refcnt, V->docked);
-			for(i = 0; i <sz; i++) {
-				void *p = tb_getMethod(m->data[i], OM_DUMP);
-				if(p) ((void(*)(tb_Object_t,int))p)(m->data[i] ,level+1);
-				else {
-					for(i = 0; i<level; i++) fprintf(stderr, " ");
-					fprintf(stderr, "<TB_EMPTY/>\n");
-				}
+	sz = m->size;
+	for(i = 0; i<level; i++) fprintf(stderr, " ");
+	if(m->size == 0) {
+		fprintf(stderr, 
+						"<TB_VECTOR SIZE=\"%d\" ADDR=\"%p\" DATA=\"%p\" REFCNT=\"%d\" DOCKED=\"%d\"/>\n",
+						sz, V, m->data, V->refcnt, V->docked);
+	} else {
+		fprintf(stderr, 
+						"<TB_VECTOR SIZE=\"%d\" ADDR=\"%p\" DATA=\"%p\" REFCNT=\"%d\" DOCKED=\"%d\">\n",
+						sz, V, m->data, V->refcnt, V->docked);
+		for(i = 0; i <sz; i++) {
+			void *p = tb_getMethod(m->data[i], OM_DUMP);
+			if(p) ((void(*)(tb_Object_t,int))p)(m->data[i] ,level+1);
+			else {
+				for(i = 0; i<level; i++) fprintf(stderr, " ");
+				fprintf(stderr, "<TB_EMPTY/>\n");
 			}
 		}
-		for(i = 0; i<level; i++) fprintf(stderr, " ");
-		fprintf(stderr, "</TB_VECTOR>\n");
 	}
+	for(i = 0; i<level; i++) fprintf(stderr, " ");
+	fprintf(stderr, "</TB_VECTOR>\n");
 }
 
 
@@ -870,34 +840,56 @@ Vector_t tb_Reverse(Vector_t V) {
 	return NULL;
 }
 
+static char *tb_vector_stringify(Vector_t V) {
+	int i, sz;
+	vector_members_t m = XVector(V);
+	tb_Clear(m->Stringified);
+	sz = m->size;
+	if(m->size == 0) {
+		tb_StrAdd(m->Stringified, -1,	"()");
+	} else {
+		m->Stringified = tb_String("(");
+		for(i = 0; i<sz; i++) {
+			void *p = tb_getMethod(m->data[i], OM_STRINGIFY);
+			if(p) {
+				char *s =  ((char *(*)(tb_Object_t))p)(m->data[i]);
+				tb_StrAdd(m->Stringified, -1,	"%s", s);
+				if(i<sz-1) {
+					tb_StrAdd(m->Stringified, -1,	", ");
+				}
+			}
+		}
+		tb_StrAdd(m->Stringified, -1, ")");
+	}
+	return tb_toStr(m->Stringified);
+}
+
+
 
 static void tb_vector_marshall(String_t marshalled, Vector_t V, int level) {
-	no_error;
-	if(tb_valid(V, TB_VECTOR, __FUNCTION__)) {
-		int i, sz;
-		char indent[level+1];
-		vector_members_t m = XVector(V);
+	int i, sz;
+	char indent[level+1];
+	vector_members_t m = XVector(V);
 
 	
-		if(marshalled == NULL) return;
-		memset(indent, ' ', level);
-		indent[level] = 0;
+	if(marshalled == NULL) return;
+	memset(indent, ' ', level);
+	indent[level] = 0;
 
-		sz = m->size;
-		if(m->size == 0) {
-			tb_StrAdd(marshalled, -1,	"%s<array>\n%s  <data/></value>%s</array>\n", indent, indent, indent);
-		} else {
-			tb_StrAdd(marshalled, -1,	"%s<array>\n%s  <data>\n", indent, indent);
-			for(i = 0; i <sz; i++) {
-				void *p = tb_getMethod(m->data[i], OM_MARSHALL);
-				if(p) {
-					tb_StrAdd(marshalled, -1,	"%s  <value>\n", indent, indent);
-					((void(*)(String_t, tb_Object_t, int))p)(marshalled, m->data[i], level+6);
-					tb_StrAdd(marshalled, -1,	"%s  </value>\n", indent, indent);
-				} 
-			}
-			tb_StrAdd(marshalled, -1, "%s  </data>\n%s</array>\n", indent, indent);
+	sz = m->size;
+	if(m->size == 0) {
+		tb_StrAdd(marshalled, -1,	"%s<array>\n%s  <data/></value>%s</array>\n", indent, indent, indent);
+	} else {
+		tb_StrAdd(marshalled, -1,	"%s<array>\n%s  <data>\n", indent, indent);
+		for(i = 0; i <sz; i++) {
+			void *p = tb_getMethod(m->data[i], OM_MARSHALL);
+			if(p) {
+				tb_StrAdd(marshalled, -1,	"%s  <value>\n", indent, indent);
+				((void(*)(String_t, tb_Object_t, int))p)(marshalled, m->data[i], level+6);
+				tb_StrAdd(marshalled, -1,	"%s  </value>\n", indent, indent);
+			} 
 		}
+		tb_StrAdd(marshalled, -1, "%s  </data>\n%s</array>\n", indent, indent);
 	}
 }
 

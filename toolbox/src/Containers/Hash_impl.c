@@ -1,5 +1,5 @@
 //=======================================================
-// $Id: Hash_impl.c,v 1.1 2004/05/12 22:04:50 plg Exp $
+// $Id: Hash_impl.c,v 1.2 2004/05/14 15:23:09 plg Exp $
 //=======================================================
 /* Copyright (c) 1999-2004, Paul L. Gatille. All rights reserved.
  *
@@ -71,7 +71,7 @@ static void          tb_node_dump    (tb_hash_node_t O, int level, int kt);
 static tb_hash_node_t tb_node_new    (tb_Key_t key, tb_Object_t value, int kt, int hasDups);
 static void          tb_node_free    (tb_hash_node_t N, int kt);
 
-
+static char        * tb_hash_stringify(Hash_t O);
 
 
 void __build_hash_once(int OID) {
@@ -87,6 +87,8 @@ void __build_hash_once(int OID) {
 	tb_registerMethod(OID, OM_TAKE,                   tb_hash_take);
 	tb_registerMethod(OID, OM_GET,                    tb_hash_get);
 	tb_registerMethod(OID, OM_REMOVE,                 tb_hash_remove);
+
+	tb_registerMethod(OID, OM_STRINGIFY,              tb_hash_stringify);
 
 	// interface Iterable already defined in Container (inherited)
 	// -> no need to call implementsIterface. 
@@ -155,6 +157,8 @@ static Hash_t tb_hash_new(tb_Object_t O, int key_type, int allow_duplicates) {
 	members->buckets  = HASH_MIN_SIZE;
 	members->kt    = key_type;
 	members->allow_duplicates = allow_duplicates;
+	members->Stringified = tb_String(NULL);
+	TB_DOCK(members->Stringified);
 
 	switch(key_type) {
 	case KT_STRING:
@@ -223,6 +227,8 @@ static void *tb_hash_free(Hash_t H) {
       tb_node_free(node, XHASH(H)->kt);
     }
   }
+	TB_DOCK(members->Stringified);
+	tb_Free(members->Stringified);
 
 	tb_freeMembers(H);
 	fm_fastfree_off();
@@ -636,6 +642,38 @@ static tb_Object_t tb_hash_take(Hash_t H, tb_Key_t key) {
 
 
 
+static char *tb_hash_stringify(Hash_t O) {
+  int           i, nb=0;
+  hash_extra_t  m = XHASH(O);
+	tb_Clear(m->Stringified);
+
+	if(m->size == 0) {
+		tb_StrAdd(m->Stringified, -1, "{}");
+	} else {
+		tb_StrAdd(m->Stringified, -1, "{");
+
+		for (i = 0; i < m->buckets; i++) {
+			tb_hash_node_t node;
+			for(node = m->nodes[i]; node != NULL;) {
+				if(node) {
+					char *(*p)(tb_Object_t) = tb_getMethod(node->value, OM_STRINGIFY);
+					if(p) {
+						char buff[20]; // fixme: may overflow
+						tb_StrAdd(m->Stringified, -1, "%s=%s", 
+											kt_getK2sz(m->kt)(node->key, buff),
+											p(node->value));
+						if(nb++ <m->size-1) {
+							tb_StrAdd(m->Stringified, -1, ", ");
+						}
+					}
+				}
+				node = node->next;
+			}
+		}
+		tb_StrAdd(m->Stringified, -1, "}");
+	}
+	return tb_toStr(m->Stringified);
+}
 
 
 static void tb_hash_marshall(String_t marshalled, Hash_t O, int level) {
@@ -644,7 +682,6 @@ static void tb_hash_marshall(String_t marshalled, Hash_t O, int level) {
 	char          indent[level+3];
 
 	if(marshalled == NULL) return;
-	no_error;
 
 	memset(indent, ' ', level+2);
 	indent[level+2] = 0;

@@ -1,5 +1,5 @@
 //------------------------------------------------------------------
-// $Id: Num.c,v 1.1 2004/05/12 22:04:52 plg Exp $
+// $Id: Num.c,v 1.2 2004/05/14 15:21:14 plg Exp $
 //------------------------------------------------------------------
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -62,6 +62,8 @@ void __build_num_once(int OID) {
 	tb_registerMethod(OID, OM_CLONE,        tb_num_clone);
 	tb_registerMethod(OID, OM_DUMP,         tb_num_dump);
 	tb_registerMethod(OID, OM_CLEAR,        tb_num_clear);
+
+	tb_registerMethod(OID, OM_STRINGIFY,    N2sz);
 
 	tb_implementsInterface(OID, "C_Castable", 
 												 &__c_castable_build_once, build_c_castable_once);
