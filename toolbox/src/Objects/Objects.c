@@ -1,5 +1,5 @@
 // ===============================================================================
-// $Id: Objects.c,v 1.3 2004/05/24 16:37:52 plg Exp $
+// $Id: Objects.c,v 1.4 2004/05/26 16:10:19 plg Exp $
 // ===============================================================================
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -35,7 +35,6 @@
  *  - TB_CONTAINER
  *   - TB_HASH         : hash tables
  *   - TB_VECTOR       : unidimensional dynamic arrays
- *   - TB_PROPERTY     : 
  *   - TB_DICT         : b+trees
  *  - TB_COMPOSITE
  *   - TB_SOCKET       : socket
