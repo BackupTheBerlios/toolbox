@@ -11,6 +11,7 @@ include_HEADERS = Toolbox.h   \
 	Containers.h                \
 	iterators.h                 \
 	Hash.h                      \
+	Vector.h                    \
 	Serialisable_interface.h    \
 	Iterable_interface.h        \
 	C_Castable_interface.h      \

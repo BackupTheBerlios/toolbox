@@ -20,13 +20,10 @@ $licence = "Copyright (c) 2004, Audemat-Aztec http://audemat-aztec.com";
 #$licence = "Copyright (c) 2004, Paul Gatille";
 
 %Members = (
-						"Templates", "Hash_t",
-						"Type",      "int",
-						"Range",     "Vector_t",    
-						"Default",   "tb_Object_t"
+						"Type", "TypeTemplate_t",
 	);
 
-$fnc_prefix = "TTmpl_";
+$fnc_prefix = "Array_";
 #
 #=====================================================================================
 
@@ -47,7 +44,7 @@ if(defined $ARGV[2]) {
 	$author = $ARGV[2];
 }
 
-$cvstag = "\$Id: new_class.pl,v 1.3 2004/05/28 15:06:07 plg Exp $";
+$cvstag = "\$Id: new_class.pl,v 1.4 2004/06/02 16:18:25 plg Exp $";
 
 $class_c = $class_name . ".c";
 $class_h = $class_name . ".h";

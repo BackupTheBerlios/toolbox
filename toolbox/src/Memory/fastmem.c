@@ -1,5 +1,5 @@
 //====================================================
-//$Id: fastmem.c,v 1.1 2004/05/12 22:04:50 plg Exp $
+//$Id: fastmem.c,v 1.2 2004/06/02 16:18:25 plg Exp $
 //====================================================
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -83,6 +83,7 @@ static fastMem_vector_t  findVec                   (void *mem);
 static int               findVec_ndx               (fastMem_vector_t vec);
 static void              __fm_Dump                 ();
 static void            * __fm_malloc               (size_t sz);
+static void              __fm_free_no_lock         (void *mem);
 
 #define assert_vec_is_clean(Vec) assert(((Vec->free_slots+Vec->used_slots)*SZCHUNK+Vec->free\
  +Vec->used)-fm->vectors_size == 0)
@@ -475,7 +476,7 @@ void *fm_realloc(void *mem, size_t new_size) {
 	fastMem_vector_t Vec;
 	pthread_once(&_setup_fm_once, setup_fm_once);
 
-	if( mem == NULL) return fm_malloc(new_size);
+	if(mem == NULL) return fm_malloc(new_size);
 
 	pthread_mutex_lock(&fm->lock);
 
@@ -493,7 +494,7 @@ void *fm_realloc(void *mem, size_t new_size) {
 	fm_checkbound(__FILE__, __LINE__, chunk);
 
 	if( new_size <= 0) {
-		fm_free(chunk);
+		__fm_free_no_lock(chunk);
 		return NULL;
 	}
 
@@ -624,12 +625,35 @@ void xFree(char* func, char *file, int line, void *mem) {
 }
 
 void fm_free(void *mem) {
-	fastMem_vector_t Vec;
 	pthread_once(&_setup_fm_once, setup_fm_once);
 	pthread_mutex_lock(&fm->lock);
 
-	if(( Vec = findVec(mem)) != NULL) {
+	__fm_free_no_lock(mem);
 
+/* 	if((Vec = findVec(mem)) != NULL) { */
+
+/* 		chunk_t chunk = FMgetChunk(mem); */
+/* 		fm_checkbound(__FILE__, __LINE__, chunk); */
+/* 		fm->free_call ++; */
+
+/* 		remove_chunk(USED, Vec, chunk); */
+/* 		insert_free_chunk(Vec, chunk); */
+
+/* 		shrink_if_shrinkable(Vec); */
+
+/* 	} else { */
+/* 		// else should be libc's allocage (or dies atrocely) */
+/* 		free(mem); */
+/* 	} */
+
+	fm_check(__FUNCTION__, __LINE__);
+	pthread_mutex_unlock(&fm->lock);
+}
+
+void __fm_free_no_lock(void *mem) {
+	fastMem_vector_t Vec;
+
+	if((Vec = findVec(mem)) != NULL) {
 		chunk_t chunk = FMgetChunk(mem);
 		fm_checkbound(__FILE__, __LINE__, chunk);
 		fm->free_call ++;
@@ -643,9 +667,6 @@ void fm_free(void *mem) {
 		// else should be libc's allocage (or dies atrocely)
 		free(mem);
 	}
-
-	fm_check(__FUNCTION__, __LINE__);
-	pthread_mutex_unlock(&fm->lock);
 }
 
 				
