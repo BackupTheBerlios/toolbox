@@ -1,5 +1,5 @@
 //========================================================================
-// 	$Id: Socket.c,v 1.1 2004/05/12 22:04:50 plg Exp $	
+// 	$Id: Socket.c,v 1.2 2004/06/08 20:30:59 plg Exp $	
 //========================================================================
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -90,10 +90,12 @@ inline srv_acl_t XAcl(Socket_t S) {
 											((__members_t)tb_getMembers(S, TB_SOCKET))->instance)->server)->acl;
 }
 
+#ifdef WITH_SSL
 inline sock_ssl_t     XSsl(Socket_t S) {
 	return (sock_ssl_t)((sock_members_t)
 											((__members_t)tb_getMembers(S, TB_SOCKET))->instance)->ssl;
 }
+#endif
 
 void __build_socket_once(int OID) {
 	tb_registerMethod(OID, OM_NEW,          tb_sock_new);

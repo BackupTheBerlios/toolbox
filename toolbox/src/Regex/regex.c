@@ -1,5 +1,5 @@
 //========================================================================
-// 	$Id: regex.c,v 1.1 2004/05/12 22:04:52 plg Exp $
+// 	$Id: regex.c,v 1.2 2004/06/08 20:30:59 plg Exp $
 //========================================================================
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -115,7 +115,7 @@ retcode_t tb_matchRegex(String_t string, char *regex, int options) {
 		if(re == NULL) {
 			char *lc_ctype = setlocale(LC_CTYPE, NULL); 
 			if( strcmp("C", lc_ctype) != 0) { 
-				(char *)table = (char *)pcre_maketables(); 
+				table = (pcre_extra *)pcre_maketables(); 
 			}
 
 			if((re = pcre_compile(regex, options, &errptr, &erroffset, table)) == NULL) {
@@ -228,7 +228,7 @@ int tb_getRegex(Vector_t  V, String_t  Str, char *regex, int options) {
 		if(re == NULL) {
 			char *lc_ctype = setlocale(LC_CTYPE, NULL); 
 			if( strcmp("C", lc_ctype) != 0) { 
-				(char *)table = (char *)pcre_maketables(); 
+				table = (unsigned char *)pcre_maketables(); 
 			}
 
 			if((re = pcre_compile(regex, options, &errptr, &erroffset, table)) == NULL) {
@@ -357,7 +357,7 @@ int tb_Sed(char *search, char *replace, String_t  text, int options ) {
 		if(re == NULL) {
 			char *lc_ctype = setlocale(LC_CTYPE, NULL); 
 			if( strcmp("C", lc_ctype) != 0) { 
-				(char *)table = (char *)pcre_maketables(); 
+				table = (unsigned char *)pcre_maketables(); 
 			}
 
 			if((re = pcre_compile(search, options, &errptr, &erroffset, table)) == NULL) {
