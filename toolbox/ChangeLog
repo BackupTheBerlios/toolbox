@@ -1,3 +1,11 @@
+2004-05-14  Paul Gatille  <pge@xanadu>
+
+	* src/Objects/Objects.c: 
+	+ new tb_Object class method : tb_Stringify (deep serialisation similar to tb_Marshall, but much liter)
+
+	* src/Containers/Vector.c: 
+	removed tb_valid tests from overloaded functions (as type checking will have already been done)
+
 2004-05-14  Paul Gatille  <pol@xenic>
 
 	* src/Scalars/Date.c 
