@@ -1,5 +1,5 @@
 //======================================================
-// $Id: Iterators.c,v 1.1 2004/05/12 22:04:49 plg Exp $
+// $Id: Iterators.c,v 1.2 2004/06/15 15:08:27 plg Exp $
 //======================================================
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -62,6 +62,7 @@ void *tb_iterator_free(Iterator_t It) {
 	if(freeIter) 	freeIter(It);
 	else  tb_warn("tb_iterator_free: can't find free IterCtx method\n"); 
 	tb_freeMembers(It);
+	It->isA = TB_ITERATOR;
 	return tb_getParentMethod(It, OM_FREE);
 }
 

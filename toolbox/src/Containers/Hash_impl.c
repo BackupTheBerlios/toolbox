@@ -1,5 +1,5 @@
 //=======================================================
-// $Id: Hash_impl.c,v 1.3 2004/05/24 16:37:52 plg Exp $
+// $Id: Hash_impl.c,v 1.4 2004/06/15 15:08:27 plg Exp $
 //=======================================================
 /* Copyright (c) 1999-2004, Paul L. Gatille. All rights reserved.
  *
@@ -238,7 +238,7 @@ static void *tb_hash_free(Hash_t H) {
 
 	tb_freeMembers(H);
 	fm_fastfree_off();
-
+	H->isA = TB_HASH;
 	return tb_getParentMethod(H, OM_FREE);
 }
 

@@ -1,5 +1,5 @@
 //======================================================
-// $Id: Vector.c,v 1.4 2004/06/02 16:41:45 plg Exp $
+// $Id: Vector.c,v 1.5 2004/06/15 15:08:27 plg Exp $
 //======================================================
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -170,6 +170,7 @@ static void *tb_vector_free(Vector_t V) {
 	tb_xfree(m->data);
 	tb_freeMembers(V);
 	fm_fastfree_off();
+	V->isA = TB_VECTOR;
 
 	return tb_getParentMethod(V, OM_FREE);
 }

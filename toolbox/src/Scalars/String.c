@@ -1,5 +1,5 @@
 //------------------------------------------------------------------
-// $Id: String.c,v 1.3 2004/05/24 16:37:53 plg Exp $
+// $Id: String.c,v 1.4 2004/06/15 15:08:27 plg Exp $
 //------------------------------------------------------------------
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -365,7 +365,7 @@ static void *tb_string_free(String_t S) {
 	string_members_t m = XStr(S);
 	if(m && m->data) tb_xfree(m->data);
 	tb_freeMembers(S);
-
+	S->isA = TB_STRING;
 	return tb_getParentMethod(S, OM_FREE);
 }
 

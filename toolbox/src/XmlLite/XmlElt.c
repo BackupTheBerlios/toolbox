@@ -1,5 +1,5 @@
 //======================================================
-// $Id: XmlElt.c,v 1.1 2004/05/12 22:04:53 plg Exp $
+// $Id: XmlElt.c,v 1.2 2004/06/15 15:08:27 plg Exp $
 //======================================================
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -249,6 +249,7 @@ void *tb_xmlelt_free(XmlElt_t X) {
 			tb_Free(_tb_undock(members->Children)); 
 		}
 		tb_freeMembers(X);
+		X->isA = TB_XMLELT;
 		return tb_getParentMethod(X, OM_FREE);
 	}
 	return NULL;

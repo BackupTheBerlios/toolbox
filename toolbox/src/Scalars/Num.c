@@ -1,5 +1,5 @@
 //------------------------------------------------------------------
-// $Id: Num.c,v 1.3 2004/05/24 16:37:53 plg Exp $
+// $Id: Num.c,v 1.4 2004/06/15 15:08:27 plg Exp $
 //------------------------------------------------------------------
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -181,6 +181,7 @@ static Num_t tb_num_new(int val) {
 static void *tb_num_free(Num_t N) {
 	tb_freeMembers(N);
 	tb_freeMembers(N);
+	N->isA = TB_NUM;
 	return tb_getParentMethod(N, OM_FREE);
 }
 

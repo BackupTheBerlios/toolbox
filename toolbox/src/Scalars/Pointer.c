@@ -1,5 +1,5 @@
 //------------------------------------------------------------------
-// $Id: Pointer.c,v 1.1 2004/05/12 22:04:52 plg Exp $
+// $Id: Pointer.c,v 1.2 2004/06/15 15:08:27 plg Exp $
 //------------------------------------------------------------------
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -140,6 +140,7 @@ void *tb_pointer_free(Pointer_t P) {
 		}
 		m->userData = NULL; // anyway, wipe out ptr ref
 		tb_freeMembers(P);
+		P->isA = TB_POINTER;
 		return tb_getParentMethod(P, OM_FREE);
 	}
 	return NULL;

@@ -1,5 +1,5 @@
 //======================================================
-// $Id: XmlDoc.c,v 1.1 2004/05/12 22:04:53 plg Exp $
+// $Id: XmlDoc.c,v 1.2 2004/06/15 15:08:27 plg Exp $
 //======================================================
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -154,6 +154,7 @@ void *tb_xmldoc_free(XmlDoc_t X) {
 		if(members->root)  tb_Free(members->root);
 
 		tb_freeMembers(X);
+		X->isA = TB_XMLDOC;
 		return tb_getParentMethod(X, OM_FREE);
 	}
 	return NULL;

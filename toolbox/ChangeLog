@@ -1,3 +1,8 @@
+2004-06-15  Gatille Paul  <pge@xanadu>
+
+	* fixed quite all constructors to set Self->isA correctly before to call parent dtor 
+ 	(was breaking derivates dtors)
+
 2004-06-08  Paul Gatille  <pol@dfs>
 
 	* fixed litle glitch in socket when WITH_SSL not defined

@@ -1,5 +1,5 @@
 //------------------------------------------------------------------
-// $Id: Raw.c,v 1.2 2004/05/27 15:54:07 plg Exp $
+// $Id: Raw.c,v 1.3 2004/06/15 15:08:27 plg Exp $
 //------------------------------------------------------------------
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -144,6 +144,7 @@ static void *tb_raw_free(Raw_t R) {
 		if(m->data) tb_xfree(m->data);
 	}
 	tb_freeMembers(R);
+	R->isA = TB_RAW;
 	return tb_getParentMethod(R, OM_FREE);
 }
 

@@ -1,5 +1,5 @@
 // ===============================================================================
-// $Id: Objects.c,v 1.4 2004/05/26 16:10:19 plg Exp $
+// $Id: Objects.c,v 1.5 2004/06/15 15:08:27 plg Exp $
 // ===============================================================================
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -251,7 +251,7 @@ int tb_getSize(tb_Object_t T) {
 		if((p = tb_getMethod(T, OM_GETSIZE))) {
 			return ((int(*)(tb_Object_t))p)(T);
 		} else {
-			tb_error("%p (%d) [no getSize method]\n", T, T->isA);
+			tb_error("%p (%d:%s) [no getSize method]\n", T, T->isA, tb_nameOf(T->isA));
 			set_tb_errno(TB_ERR_NO_SUCH_METHOD);
 		}
 	}

@@ -4,7 +4,7 @@ See the file COPYING for copying permission.
 */
 /*
 static char RCSId[]
-  = "$Header: /home/xubuntu/berlios_backup/github/tmp-cvs/toolbox/Repository/toolbox/src/XmlLite/Expat/xmltok.c,v 1.1 2004/05/12 22:04:54 plg Exp $";
+  = "$Header: /home/xubuntu/berlios_backup/github/tmp-cvs/toolbox/Repository/toolbox/src/XmlLite/Expat/xmltok.c,v 1.2 2004/06/15 15:08:27 plg Exp $";
 */
 
 #ifdef COMPILED_FROM_DSP
