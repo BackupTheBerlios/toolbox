@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 2; indent-tabs-mode: t; c-basic-offset: 2 -*- */
 //======================================================
-// $Id: Hash_impl.h,v 1.1 2004/05/12 22:04:48 plg Exp $
+// $Id: Hash_impl.h,v 1.2 2004/05/19 15:13:54 plg Exp $
 //======================================================
 
 /* Copyright (c) 1999-2002, Paul L. Gatille. All rights reserved.
@@ -67,7 +67,7 @@ struct hash_extra {
   int               frozen;
 	int               flag;
 	tb_hash_node_t  * nodes;
-
+	String_t          Stringified;
 };
 typedef struct hash_extra *hash_extra_t;
 

@@ -1,5 +1,5 @@
 //------------------------------------------------------------------
-// $Id: Objects.h,v 1.1 2004/05/12 22:04:48 plg Exp $
+// $Id: Objects.h,v 1.2 2004/05/19 15:13:54 plg Exp $
 //------------------------------------------------------------------
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -63,6 +63,7 @@ extern int	OM_CLONE;
 extern int	OM_DUMP;
 extern int	OM_CLEAR;
 extern int	OM_INSPECT;
+extern int	OM_STRINGIFY;
 extern int	OM_SERIALIZE;
 extern int	OM_UNSERIALIZE;
 

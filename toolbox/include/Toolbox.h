@@ -1,5 +1,5 @@
 //============================================================
-// 	$Id: Toolbox.h,v 1.2 2004/05/13 22:05:56 plg Exp $
+// 	$Id: Toolbox.h,v 1.3 2004/05/19 15:13:54 plg Exp $
 //============================================================
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -438,6 +438,7 @@ uint          tb_isA            (tb_Object_t obj);
 int           tb_getSize        (tb_Object_t obj);
 tb_Object_t   tb_Clear          (tb_Object_t to);
 void          tb_Dump           (tb_Object_t obj);
+char        * tb_Stringify      (tb_Object_t O);
 char        * tb_toStr          (tb_Object_t obj, ...); 
 int           tb_toInt          (tb_Object_t to, ...);
 tb_Object_t   tb_unMarshall     (String_t xml_element);
