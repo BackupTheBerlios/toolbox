@@ -1,6 +1,5 @@
-SUBDIRS = Objects Scalars Containers Regex Composites Utils XmlLite Memory
-INCLUDES = -I. -I$(top_srcdir)/include
-AM_LDFLAGS  =
+SUBDIRS     = Objects Scalars Containers Regex Composites Utils XmlLite Memory
+INCLUDES    = -I. -I$(top_srcdir)/include
 AM_CFLAGS   = @COMMON_CFLAGS@
 
 

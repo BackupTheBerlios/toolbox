@@ -1,5 +1,4 @@
 INCLUDES = -I. -I$(top_srcdir)/include @SSL_INCLUDE@
-AM_LDFLAGS  = 
 AM_CFLAGS   = @COMMON_CFLAGS@
 
 noinst_LTLIBRARIES = libComposites.la

@@ -1,5 +1,4 @@
 INCLUDES = -I. -I$(top_srcdir)/include 
-AM_LDFLAGS  = -L$(top_srcdir)/src/.libs -L/usr/local/lib
 AM_CFLAGS   = @COMMON_CFLAGS@
 
 bin_PROGRAMS  = \

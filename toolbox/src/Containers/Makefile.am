@@ -1,5 +1,4 @@
 INCLUDES = -I. -I$(top_srcdir)/include
-AM_LDFLAGS  = 
 AM_CFLAGS   = @COMMON_CFLAGS@
 
 noinst_LTLIBRARIES = libContainers.la
