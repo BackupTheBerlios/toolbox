@@ -1,5 +1,5 @@
 //------------------------------------------------------------------
-// $Id: Raw.c,v 1.1 2004/05/12 22:04:52 plg Exp $
+// $Id: Raw.c,v 1.2 2004/05/27 15:54:07 plg Exp $
 //------------------------------------------------------------------
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -89,11 +89,29 @@ Raw_t dbg_tb_raw(char *func, char *file, int line, int len, char *data) {
  * @ingroup Raw
  */
 Raw_t tb_Raw(int len, char *data) {
-	Raw_t R = NULL;
-	if( data && len >0 ) {
-		R = tb_raw_new(len, data);
+	return tb_raw_new(len, data);
+}
+
+
+void * Raw_getData(Raw_t R) {
+	if(tb_valid(R, TB_RAW, __FUNCTION__)) {
+		return XRaw(R)->data;
 	}
-	return R;
+	return NULL;
+}
+
+retcode_t Raw_setData(Raw_t R, int len, char *raw) {
+	if(tb_valid(R, TB_RAW, __FUNCTION__)) {
+		raw_members_t m = XRaw(R);
+		if(m->data) {
+			tb_xfree(m->data);
+		}
+		m->size = len;
+		m->data = tb_xcalloc(1, len +1);
+		memcpy(m->data, raw, len);
+		return TB_OK;
+	}
+	return TB_KO;
 }
 
 static Raw_t tb_raw_new(int len, char *data) {
@@ -183,24 +201,26 @@ static void tb_raw_marshall( String_t marshalled, Raw_t R, int level) {
 				tb_StrAdd(marshalled, -1, "%s<base64>%s</base64>\n", indent, r);
 				tb_xfree(r);
 			} else {
-				tb_StrAdd(marshalled, -1, "%s</base64>\n", indent);
+				tb_StrAdd(marshalled, -1, "%s<base64/>\n", indent);
 			}
 		}
 }
 
 static Raw_t tb_raw_unmarshall(XmlElt_t xml_entity) {
 	Raw_t   R;
-	void  * r;
-	int     len;
+	void  * r = NULL;
+	int     len = 0;
 
 	if(! streq(S2sz(XELT_getName(xml_entity)), "base64")) {
 		tb_error("tb_raw_unmarshall: not a base64 Elmt\n");
 		return NULL;
 	}
-	len = tb_DecodeBase64(S2sz(XELT_getText(tb_Get( XELT_getChildren(xml_entity), 0))), &r);
+	if(tb_getSize(XELT_getChildren(xml_entity)) >0) {
+		len = tb_DecodeBase64(S2sz(XELT_getText(tb_Get( XELT_getChildren(xml_entity), 0))), &r);
+	}
 
 	R = tb_Raw(len, r);
-	tb_xfree(r);
+	if(r) tb_xfree(r);
 
 	return R;
 }

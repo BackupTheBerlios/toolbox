@@ -1,5 +1,5 @@
 //============================================================
-// 	$Id: Toolbox.h,v 1.4 2004/05/24 16:37:51 plg Exp $
+// 	$Id: Toolbox.h,v 1.5 2004/05/27 15:54:07 plg Exp $
 //============================================================
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -564,6 +564,9 @@ void      tb_hexdump                 (char *bin, int len);
 
 int        strsz           (char *s); //FIXME: to be deprecated
 
+// ---------Raw_t Methods------------------------------------------
+void      * Raw_getData(Raw_t R);
+retcode_t   Raw_setData(Raw_t R, int len, char *raw);
 // ---------Date_t Methods------------------------------------------
 
 // constructors

@@ -1,5 +1,5 @@
 //=======================================================
-// $Id: XmlRpc_util.c,v 1.2 2004/05/24 16:37:53 plg Exp $
+// $Id: XmlRpc_util.c,v 1.3 2004/05/27 15:54:07 plg Exp $
 //=======================================================
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -52,6 +52,7 @@
 */
 
 #include <sys/socket.h> // for shutdown
+#include <stdio.h>
 
 #include "Toolbox.h"
 #include "XmlRpc.h"
@@ -196,6 +197,8 @@ int XRpc_sendCall(XmlRpc_t Xr, /*Uri_t Dest*/ Socket_t So, char *func, ...) {
 			tb_StrAdd(Request, -1, "  </params>\n");
 			tb_StrAdd(Request, -1, "</methodCall>\n");
 
+			fprintf(stderr, "%s", tb_toStr(Request));
+
 			//		So = Uri_openIOChannel(Dest);
 			rc = tb_writeSock(So, tb_toStr(Request));
 			tb_Free(Request);
@@ -303,20 +306,36 @@ void XRpc_receiveCall(Socket_t So) {
 	XmlElt_t Query;
 	Vector_t argVector = NULL;
 	String_t methodName;
-	String_t Reply = NULL;
+	String_t Reply = tb_String("%s", "<?xml version=\"1.0\"?>\n<methodResponse>\n");
 	int      rc;
-
 
 	while(tb_readSock(So, Request, MAX_BUFFER)>0);
 
-	tb_warn("XRpc_receiveCall: <%S>\n", Request);
+	fprintf(stderr, "XRpc_receiveCall: <%s>\n", tb_toStr(Request));
+
+	if(tb_getSize(Request) == 0) {
+		tb_Free(Request);
+		XRpc_makeFaultResponse(Reply, XMLRPC_FAULT_NO_SUCH_CALL);
+		goto send_reply;
+	}
 
 	QueryDoc   = tb_XmlDoc(tb_toStr(Request));
 	tb_Free(Request);
 
+	if(QueryDoc == NULL) {
+		XRpc_makeFaultResponse(Reply, XMLRPC_FAULT_NO_SUCH_CALL);
+		goto send_reply;
+	}
 
-	Query      = XDOC_getRoot(QueryDoc);
-	methodName = XRpc_getQueryMethodName(Query);
+	if((Query      = XDOC_getRoot(QueryDoc)) == NULL) {
+		XRpc_makeFaultResponse(Reply, XMLRPC_FAULT_NO_SUCH_CALL);
+		goto send_reply;
+	}
+	if((methodName = XRpc_getQueryMethodName(Query)) == NULL) {
+		XRpc_makeFaultResponse(Reply, XMLRPC_FAULT_NO_SUCH_CALL);
+		goto send_reply;
+	}
+
 	Sig        = XRpc_getSignature(Xr, tb_toStr(methodName));
 
 	if(Sig) {
@@ -326,6 +345,7 @@ void XRpc_receiveCall(Socket_t So) {
 		int rc;
 		if(SigParamIt && QueryParamIt &&
 			 tb_getSize(SigParamIt) == tb_getSize(QueryParamIt)) {
+
 			argVector = tb_Vector();
 			do {
 				//<param><value><string>voila</string></value> : must dig from <param> to <string>
@@ -339,6 +359,8 @@ void XRpc_receiveCall(Socket_t So) {
 			// Not freeing SigParamIt at this point 
 		}
 
+		tb_warn("will call native\n");
+
 		rc = XRpc_callNative(Xr, tb_toStr(methodName), argVector);
 
 		if(rc == TB_OK) {
@@ -346,7 +368,6 @@ void XRpc_receiveCall(Socket_t So) {
 			tb_First(SigParamIt);
 			if(SigParamIt && argIt) {
 				String_t Tmp;
-				Reply = tb_String("%s", "<?xml version=\"1.0\"?>\n<methodResponse>\n");
 				tb_StrAdd(Reply, -1, "  <params>\n");
 
 				do {
@@ -371,6 +392,7 @@ void XRpc_receiveCall(Socket_t So) {
 		XRpc_makeFaultResponse(Reply, XMLRPC_FAULT_NO_SUCH_CALL);
 	}
 
+ send_reply:
 	tb_warn("reply<%S>\n", Reply);
 
 	rc = tb_writeSock(So, tb_toStr(Reply));

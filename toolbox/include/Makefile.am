@@ -13,6 +13,7 @@ include_HEADERS = Toolbox.h   \
 	Hash.h                      \
 	Serialisable_interface.h    \
 	Iterable_interface.h        \
-	C_Castable_interface.h      
+	C_Castable_interface.h      \
+	XmlRpc.h
 
 
