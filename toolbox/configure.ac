@@ -104,13 +104,13 @@ AC_SUBST(COMMON_CFLAGS)
 AC_CONFIG_FILES([\
 	include/Makefile               \
 	include/tb_global.h            \
-	src/version.h                  \
 	src/Makefile                   \
 	src/Objects/Makefile           \
 	src/Scalars/Makefile           \
 	src/Containers/Makefile        \
 	src/Regex/Makefile             \
 	src/Composites/Makefile        \
+	src/Composites/Ipc/Makefile    \
 	src/Memory/Makefile            \
 	src/XmlLite/Makefile           \
 	src/XmlLite/Expat/Makefile     \

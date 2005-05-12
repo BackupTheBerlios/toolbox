@@ -1,5 +1,5 @@
 //=======================================================
-// $Id: SockIO.c,v 1.1 2004/05/12 22:04:49 plg Exp $
+// $Id: SockIO.c,v 1.2 2005/05/12 21:49:01 plg Exp $
 //=======================================================
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -235,13 +235,8 @@ int tb_readSock(Socket_t S, tb_Object_t Msg, int maxlen) {
       case 0:  // eof
 				*buff = 0;
       default:
-				buff[rc] = 0; 
 				retval += rc;
-				if(tb_isA(Msg) == TB_STRING) {
-					tb_StrAdd(Msg, -1, "%s", buff);
-				} else {
-				tb_RawAdd(Msg, rc+1, -1, buff); 
-				}
+				tb_RawAdd(Msg, rc, -1, buff); 
 				break ;
       }
       break;
@@ -318,7 +313,7 @@ int tb_writeSock(Socket_t S, char *msg) {
       break ;
     case 0:
       /* Time out */
-      tb_warn("tb_writeSock[%d]: select timed out\n", So->sock); 
+      tb_notice("tb_writeSock[%d]: select timed out\n", So->sock); 
       So->status = TB_TIMEDOUT;
       retval = TB_KO;
       break ;
@@ -427,7 +422,7 @@ int tb_writeSockBin(Socket_t S, Raw_t raw) {
   FD_ZERO(&set);
   FD_SET(So->sock,&set);
 
-	msg = S2sz(raw);
+	msg = Raw_getData(raw);
 	remaining = tb_getSize(raw);
 
  restart_w_select:
@@ -448,7 +443,7 @@ int tb_writeSockBin(Socket_t S, Raw_t raw) {
       break ;
     case 0:
       /* Time out */
-      tb_warn("tb_writeSock[%d]: select timed out\n", So->sock); 
+      tb_notice("tb_writeSock[%d]: select timed out\n", So->sock); 
       So->status = TB_TIMEDOUT;
       retval = TB_KO;
       break ;
@@ -586,7 +581,7 @@ int tb_readSockLine(Socket_t S, String_t Msg) {
       break; 
     case 0:
       /* Time out */
-      tb_warn("tb_readSockLine[%d]: select timed out\n", So->sock); 
+      tb_notice("tb_readSockLine[%d]: select timed out\n", So->sock); 
       So->status = TB_TIMEDOUT;
       retval = TB_ERR;
       break ;
@@ -629,7 +624,7 @@ int tb_readSockLine(Socket_t S, String_t Msg) {
 #endif // WITH_SSL
       switch( rc ) {
       case -1:
-				if( errno == EINTR ) goto restart_r_read;
+				if( errno == EINTR|| errno == EWOULDBLOCK ) goto restart_r_read;
 				if( errno != EWOULDBLOCK ) {
 					tb_error("tb_readSockLine[%d]: read error (%s)\n", So->sock, strerror(errno));
 					retval = TB_ERR;
@@ -655,10 +650,7 @@ int tb_readSockLine(Socket_t S, String_t Msg) {
 						tb_StrDel(So->buffer, 0, len);
 						retval = len;
 					} else {
-						tb_warn("tb_readSockLine[%d]: no full line found\n", So->sock);
-						// added twice ???
-						// tb_StrAdd(So->buffer, -1, "%s", buff);
-						retval = strlen(buff);
+						goto restart_r_select;
 					}
 				}
 				break;

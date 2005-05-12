@@ -3,6 +3,12 @@ SUBDIRS    = src include
 doc: doxy.conf
 	rm -rf doc/html &&	doxygen doxy.conf
 
+cscope: 
+	cscope -R -b -I/usr/local/include
+
+
+
+
 dist-hook:
 	cp doxy.conf $(distdir)
 	mkdir $(distdir)/config

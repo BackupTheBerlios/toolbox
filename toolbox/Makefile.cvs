@@ -7,8 +7,4 @@ all:
 	autoheader
 	automake --add-missing --foreign 
 	autoconf
-	aclocal
-	autoheader
-	automake
-	autoconf
 
