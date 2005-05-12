@@ -1,5 +1,5 @@
 //=======================================================
-// $Id: Hash_impl.c,v 1.4 2004/06/15 15:08:27 plg Exp $
+// $Id: Hash_impl.c,v 1.5 2005/05/12 21:51:08 plg Exp $
 //=======================================================
 /* Copyright (c) 1999-2004, Paul L. Gatille. All rights reserved.
  *
@@ -34,12 +34,17 @@
 #include "Memory.h"
 #include "Error.h"
 
+#include "Tlv.h"
 
+tb_hash_node_t Hash_lookup    (Hash_t H, tb_Key_t the_key, int *bucket);
+inline int     Hash_bucket    (Hash_t H, tb_Key_t Key);
 
 
 inline hash_extra_t  XHASH(Hash_t H) {
 	return (hash_extra_t)((__members_t)tb_getMembers(H, TB_HASH))->instance;
 }
+
+//static void tb_hash_dissect(Hash_t H);
 
 // from R.E. str library (see copyright below)
 static unsigned long hash_djbx33  (register unsigned char *key, register size_t len);
@@ -64,6 +69,8 @@ static int           tb_hash_exists  (Hash_t H, tb_Key_t key);
 static Hash_t        tb_hash_clone   (Hash_t H);
 static void          tb_hash_marshall(String_t marshalled, Hash_t O, int level);
 static Hash_t        tb_hash_unmarshall(XmlElt_t xml_element);
+static Tlv_t         tb_hash_toTlv   (Hash_t H);
+static Hash_t        tb_hash_fromTlv (Tlv_t T);
 
 static void          tb_node_dump    (tb_hash_node_t O, int level, int kt);
 static tb_hash_node_t tb_node_new    (tb_Key_t key, tb_Object_t value, int kt, int hasDups);
@@ -98,6 +105,9 @@ void __build_hash_once(int OID) {
 
 	tb_registerMethod(OID, OM_MARSHALL,     tb_hash_marshall);
 	tb_registerMethod(OID, OM_UNMARSHALL,   tb_hash_unmarshall);
+	tb_registerMethod(OID, OM_TOTLV,        tb_hash_toTlv);
+	tb_registerMethod(OID, OM_FROMTLV,      tb_hash_fromTlv);
+
 }
 
 
@@ -124,8 +134,19 @@ inline static unsigned long __hash_me(Hash_t H, tb_Key_t K) {
 
 	switch(members->kt) {
 	case KT_STRING:
-	case KT_STRING_I:
 		ul = ((unsigned long (*)(register unsigned char *, register size_t))p)(K.key, strlen(K.key));
+		break;
+	case KT_STRING_I:
+		{
+			char *s, *k;
+			char *key = k = tb_xstrdup(K.key);
+		
+			for(s = key; *s != 0; s++) {
+				*s = toupper((unsigned char)*(k++));
+			}
+			ul = ((unsigned long (*)(register unsigned char *, register size_t))p)(key, strlen(key));
+			tb_xfree(key);
+		}
 		break;
 	case KT_INT:
 		ul = ((unsigned long (*)(int))p)(K.ndx);
@@ -235,7 +256,7 @@ static void *tb_hash_free(Hash_t H) {
       tb_node_free(node, XHASH(H)->kt);
     }
   }
-
+	tb_xfree(members->nodes);
 	tb_freeMembers(H);
 	fm_fastfree_off();
 	H->isA = TB_HASH;
@@ -248,7 +269,6 @@ static Hash_t tb_hash_clone(Hash_t O) {
   int           i;
   hash_extra_t  members    = XHASH(O);
 	Hash_t        clone      = tb_HashX(members->kt, members->allow_duplicates);
-	no_error;
 
   for (i = 0; i < members->buckets; i++) {
     tb_hash_node_t node, next;
@@ -272,24 +292,24 @@ static Hash_t tb_hash_clone(Hash_t O) {
 
 static tb_Object_t tb_hash_clear(tb_Object_t O) {
   int i;
-  hash_extra_t members = XHASH(O);
-	no_error;
-	if(!tb_getSize(O)) return O;
+  hash_extra_t m = XHASH(O);
+
+	if(tb_getSize(O) == 0) return O;
 
 	fm_fastfree_on();
-  for (i = 0; i < members->buckets; i++) {
+  for (i = 0; i < m->buckets; i++) {
     tb_hash_node_t node, next;
-    for (node = members->nodes[i]; node; node = next) {
+    for (node = m->nodes[i]; node; node = next) {
       next = node->next;
-      tb_node_free(node, members->kt);
+      tb_node_free(node, m->kt);
     }
   }
-  tb_xfree(members->nodes);
+  tb_xfree(m->nodes);
 	fm_fastfree_off();
 
-	members->buckets = HASH_MIN_SIZE;
-
-  members->nodes = tb_xcalloc((size_t)members->buckets, sizeof(tb_hash_node_t));
+	m->buckets = HASH_MIN_SIZE;
+	m->size     = 0;
+  m->nodes = tb_xcalloc((size_t)m->buckets, sizeof(tb_hash_node_t));
 
 	return O;
 }
@@ -301,7 +321,6 @@ static void tb_hash_dump(Hash_t O, int level) {
   hash_extra_t    members = XHASH(O);
 	char          * dupl[]  = {"No", "Yes"};
 
-	no_error;
   for(i = 0; i<level; i++) fprintf(stderr, " ");
 
 	if(members->size == 0) {
@@ -335,7 +354,6 @@ static void tb_node_dump(tb_hash_node_t N, int level, int kt) {
   int        i;
 	k2sz_t     k2sz       = kt_getK2sz(kt);
 	char       buff[20]; // fixme: may overflow
-	no_error;
   for(i = 0; i<level; i++) fprintf(stderr, " ");
 	if(N->nb >0) {
 		fprintf(stderr, "<NODE addr=\"%p\" duplicates=\"%d\" key=\"%s\" >\n",
@@ -363,7 +381,7 @@ static void tb_node_dump(tb_hash_node_t N, int level, int kt) {
 
 static void tb_hash_resize (Hash_t H) {
   tb_hash_node_t        * new_nodes;
-  tb_hash_node_t          node, next, prev;
+  tb_hash_node_t          node, next;
   float                   nodes_per_list;
   ulong                   hash_val;
   int                     new_size;
@@ -385,7 +403,6 @@ static void tb_hash_resize (Hash_t H) {
   new_nodes = (tb_hash_node_t *)tb_xcalloc(new_size, sizeof(struct tb_hash_node));
 
   for (i = 0; i < members->buckets; i++) {
-		prev = NULL;
     for (node = members->nodes[i]; node; node = next) {
       next = node->next;
       hash_val = __hash_me(H, node->key) % new_size;
@@ -393,7 +410,6 @@ static void tb_hash_resize (Hash_t H) {
 
       node->next = new_nodes[hash_val];
 			node->prev = NULL;
-			prev       = node;
       new_nodes[hash_val] = node;
     }
   }
@@ -402,49 +418,33 @@ static void tb_hash_resize (Hash_t H) {
   members->buckets = new_size;
 }                       
 
-tb_hash_node_t *tb_hash_lookup_node(Hash_t H, tb_Key_t the_key) {
-	char            * key;
-  tb_hash_node_t  * node    = NULL;
-  hash_extra_t      members = XHASH(H);
 
-	no_error;
+inline int Hash_bucket(Hash_t H, tb_Key_t Key) {
+  hash_extra_t      m    = XHASH(H);
+	return(__hash_me(H, Key) % m->buckets);
+}
 
-	if(members->kt == KT_STRING_I) { // upcase all
-		char *s, *k;
-		key = k = tb_xstrdup(the_key.key);
 		
-		for(s = key; *s != 0; s++) {
-			*s = toupper((unsigned char)*(k++));
-		}
-		node = & members->nodes[ __hash_me(H, s2K(key)) % members->buckets];
-		while ((*node) && ! (strcasecmp((*node)->key.key, key) == 0))	{
-			node = & (*node)->next;
-		}
-		tb_xfree(key);
-	} else {
-		kcmp_t kcmp = kt_getKcmp(members->kt);
-		node = & members->nodes[ __hash_me(H, the_key) % members->buckets];
-		while ((*node) && ! (kcmp((*node)->key, the_key) == 0))	{
-			node = & (*node)->next;
-		}
-	}
+tb_hash_node_t Hash_lookup(Hash_t H, tb_Key_t key, int *bucket) {
+  hash_extra_t      m    = XHASH(H);
+  tb_hash_node_t    node = m->nodes[(*bucket = Hash_bucket(H, key))];
 
+		kcmp_t kcmp = kt_getKcmp(m->kt);
+		while (node && ! (kcmp(node->key, key) == 0))	{
+			node = node->next;
+		}
   return node;
 }
 
 
 
 static tb_Object_t tb_hash_get(Hash_t H, tb_Key_t key) {
-  tb_hash_node_t   * node;
+  tb_hash_node_t    node;
+	int               bucket;
 	tb_Object_t        O = NULL;
 
-	no_error;
-
-  if((node = tb_hash_lookup_node(H, key))) {
-		if(*node) O = ((*node)->nb >0) ? (*node)->values[0] : (*node)->value;
-
-	} else {
-		set_tb_errno(TB_ERR_EMPTY_VALUE);
+  if((node = Hash_lookup(H, key, &bucket))) {
+		if(node) O = (node->nb >0) ? node->values[0] : node->value;
 	}
 
   return O;
@@ -455,56 +455,64 @@ static tb_Object_t tb_hash_get(Hash_t H, tb_Key_t key) {
 
 static int tb_hash_exists(Hash_t H, tb_Key_t key) { // fixme: dupes !
 	if(XHASH(H)->allow_duplicates) {
-		tb_hash_node_t *node = tb_hash_lookup_node(H, key);
-		return ((*node) != NULL) ? (*node)->nb : 0 ;
+		int             bucket;
+		tb_hash_node_t node = Hash_lookup(H, key, &bucket);
+		return (node != NULL) ? node->nb : 0 ;
 	} 
 	return (tb_hash_get(H, key)) ? 1 : 0;
 }
 
+static void Hash_addLast(tb_hash_node_t *Nodes, int offset, tb_hash_node_t node) {
+	tb_hash_node_t n = Nodes[offset];
+	if(n == NULL) {
+		Nodes[offset] = node;
+		node->prev = node->next = NULL;
+	} else {
+		while(n->next) n = n->next;
+		n->next = node;
+		node->prev = n;
+		node->next = NULL;
+	}
+}
+
 
 static retcode_t tb_hash_replace(Hash_t H, tb_Object_t value, tb_Key_t key) {
-  tb_hash_node_t     * node;
-	tb_hash_node_t       prev    = NULL;
-	tb_hash_node_t       next    = NULL;
-  hash_extra_t         members = XHASH(H);
+  tb_hash_node_t      node;
+  hash_extra_t        m       = XHASH(H);
+	int                 bucket;
 
-	node = tb_hash_lookup_node(H, key);
+	node = Hash_lookup(H, key, &bucket);
 
-  if(*node) {     // overwrites value for this key
+  if(node) {     // overwrites value for this key
 		char buff[20]; // fixme: may overflow
-		tb_debug("tb_Hash::Replace: key <%s> overwritten\n", kt_getK2sz(members->kt)(key, buff));
+		tb_debug("tb_Hash::Replace: key <%s> overwritten\n", kt_getK2sz(m->kt)(key, buff));
 
-		if((*node)->nb >0) {
+		if(node->nb >0) {
 			int i;
-			for(i=0; i<(*node)->nb; i++) {
-				TB_UNDOCK((*node)->values[i]);
-				tb_Free((*node)->values[i]);
+			for(i=0; i<node->nb; i++) {
+				TB_UNDOCK(node->values[i]);
+				tb_Free(node->values[i]);
 				
 			}
-			(*node)->nb = 1;
-			(*node)->values[0] = value;
+			node->nb = 1;
+			node->values[0] = value;
 			TB_DOCK(value);
 		} else {
-			TB_UNDOCK((*node)->value);
-			tb_Free((*node)->value);
-			(*node)->value = value;
+			TB_UNDOCK(node->value);
+			tb_Free(node->value);
+			node->value = value;
 			TB_DOCK(value);
 		}
 
   } else {
-    *node = tb_node_new(key, value, members->kt, members->allow_duplicates);
-		TB_DOCK(value);
-		if(prev) {
-			prev->next  = *node;
-			(*node)->prev = prev;
-		}
-		if(next) {
-			next->prev = *node;
-			(*node)->next = next;
-		}
 
-    members->size++;
-    if(!members->frozen) tb_hash_resize(H);
+    node = tb_node_new(key, value, m->kt, m->allow_duplicates);
+		TB_DOCK(value);
+
+		Hash_addLast(m->nodes, bucket, node);
+
+    m->size++;
+    if(!m->frozen) tb_hash_resize(H);
   }
 
 	return TB_OK;
@@ -512,43 +520,33 @@ static retcode_t tb_hash_replace(Hash_t H, tb_Object_t value, tb_Key_t key) {
 
 
 static retcode_t tb_hash_insert(Hash_t H, tb_Object_t value, tb_Key_t key) {
-  tb_hash_node_t     * node;
-	tb_hash_node_t       prev    = NULL;
-	tb_hash_node_t       next    = NULL;
-  hash_extra_t         members = XHASH(H);
+  hash_extra_t         m       = XHASH(H);
 	int                  retcode = TB_OK;
+	int                  bucket;
+	tb_hash_node_t       node    = Hash_lookup(H, key, &bucket);
 
-	no_error;
-
-	node = tb_hash_lookup_node(H, key);
-
-  if(*node) {     // _don't_ overwrites value for this key (except
+  if(node) {     // _don't_ overwrites value for this key (except
 									// when dupes are allowed
-		if((*node)->nb >0) {
-			(*node)->nb++;
-			(*node)->values = tb_xrealloc((*node)->values, sizeof(tb_Object_t)* (*node)->nb);
-			(*node)->values[(*node)->nb -1] = value;
+		if(node->nb >0) {
+			node->nb++;
+			node->values = tb_xrealloc(node->values, sizeof(tb_Object_t)* node->nb);
+			node->values[node->nb -1] = value;
 			TB_DOCK(value);
 		} else {
 			char buff[100];
-			tb_warn("tb_Hash::insert: key <%s> collision\n", kt_getK2sz(members->kt)(key, buff));
-			set_tb_errno(TB_ERR_ALLREADY);
+			tb_warn("tb_Hash::insert: key <%s> collision\n", kt_getK2sz(m->kt)(key, buff));
 			retcode = TB_KO;
 		}
   } else {
-    *node = tb_node_new(key, value, members->kt, members->allow_duplicates);
-		TB_DOCK(value);
-		if(prev) {
-			prev->next  = *node;
-			(*node)->prev = prev;
-		}
-		if(next) {
-			next->prev = *node;
-			(*node)->next = next;
-		} 
 
-    members->size++;
-    if(!members->frozen) tb_hash_resize(H);
+    node = tb_node_new(key, value, m->kt, m->allow_duplicates);
+		TB_DOCK(value);
+
+		Hash_addLast(m->nodes, bucket, node);
+
+    m->size++;
+
+    if(! m->frozen) tb_hash_resize(H);
   }
 
 	return retcode;
@@ -556,90 +554,82 @@ static retcode_t tb_hash_insert(Hash_t H, tb_Object_t value, tb_Key_t key) {
 
 
 static retcode_t tb_hash_remove(Hash_t H, tb_Key_t key) {
-  tb_hash_node_t       * node;
-	tb_hash_node_t         n, p, t;
-  hash_extra_t           members = XHASH(H);
+  tb_hash_node_t         node;
+  hash_extra_t           m = XHASH(H);
+	int                    bucket;
 
-	no_error;
+  node   = Hash_lookup(H, key, &bucket);
 
-  node = tb_hash_lookup_node(H, key);
-
-  if(*node) {
-		n = (*node)->next;
-		p = (*node)->prev;
-
-		t = (p != NULL) ? p : n;
-
-		tb_node_free(*node, XHASH(H)->kt);
-		*node = NULL;
-
-    if(p != NULL || n != NULL) {
-      if(p) p->next = n;
-      if(n) n->prev = p;
+  if(node) {
+		// relink list
+		if(node->prev) {
+			node->prev->next = node->next;
+		} else {
+			m->nodes[bucket] = node->next;
+		}
+		if(node->next) {
+			node->next->prev = node->prev;
     }
 
-		while(t && t->prev) t = t->prev; // ??? fixme  
+		tb_node_free(node, XHASH(H)->kt);
 
-    members->size--;
+    m->size--;
 
-    members->nodes[ __hash_me(H, key) % members->buckets] = t;
 
-		if(!members->frozen)  tb_hash_resize(H);
+		if(! m->frozen)  tb_hash_resize(H);
   }                                     
 
 	return TB_OK;
 }
 
 static tb_Object_t tb_hash_take(Hash_t H, tb_Key_t key) {
-  tb_hash_node_t    * node;
-	tb_hash_node_t      n, p, t;
-  hash_extra_t        members   = XHASH(H);
+  hash_extra_t        m         = XHASH(H);
 	tb_Object_t         O         = NULL;
+  tb_hash_node_t      node;
+	int                 bucket;
 
-	no_error;
+  node   = Hash_lookup(H, key, &bucket);
 
-  node = tb_hash_lookup_node(H, key);
-  if(*node) {
-		n = (*node)->next;
-		p = (*node)->prev;
-
-		t = (p != NULL) ? p : n;
-
-		if((*node)->nb >0) {
-			(*node)->nb--;
-			O = (*node)->values[(*node)->nb];
+  if(node) {
+		if(node->nb >0) {
+			node->nb--;
+			O = node->values[node->nb];
 			TB_UNDOCK(O);
-			if((*node)->nb ==0) {
-				kt_getKfree(members->kt)((*node)->key);
-				tb_xfree(*node);
-				*node = NULL;
+			if(node->nb == 0) {
+				// relink list
+				if(node->prev) {
+					node->prev->next = node->next;
+				} else {
+					m->nodes[bucket] = node->next;
+				}
+				if(node->next) {
+					node->next->prev = node->prev;
+				}
+				// remove emptied node
+				kt_getKfree(m->kt)(node->key);
+				tb_xfree(node);
 
-				if(p) p->next = n;
-				if(n) n->prev = p;
-
-				while(t && t->prev) t = t->prev; 
-
-				members->nodes[ __hash_me(H, key) % members->buckets] = t;
-
-				members->size--;
-				if(!members->frozen) tb_hash_resize(H);
+				m->size--;
+				if(!m->frozen) tb_hash_resize(H);
 			}			
 		} else {
-			O = (*node)->value;
+			O = node->value;
 			TB_UNDOCK(O);
-			kt_getKfree(members->kt)((*node)->key);
-			tb_xfree(*node);
-			*node = NULL;
+			// relink list
+			if(node->prev) {
+				node->prev->next = node->next;
+			} else {
+				m->nodes[bucket] = node->next;
+			}
+			if(node->next) {
+				node->next->prev = node->prev;
+			}
+			// remove emptied node
+			kt_getKfree(m->kt)(node->key);
+			tb_xfree(node);
 
-			if(p) p->next = n;
-			if(n) n->prev = p;
-
-			while(t && t->prev) t = t->prev; 
-
-			members->nodes[ __hash_me(H, key) % members->buckets] = t;
-
-			members->size--;
-			if(!members->frozen) tb_hash_resize(H);
+			m->size--;
+			if(!m->frozen) tb_hash_resize(H);
 		}
   }
 
@@ -647,40 +637,6 @@ static tb_Object_t tb_hash_take(Hash_t H, tb_Key_t key) {
 }
 
 
-#ifdef OBSOLETE_NOW
-static char *tb_hash_stringify(Hash_t O) {
-  int           i, nb=0;
-  hash_extra_t  m = XHASH(O);
-	tb_Clear(m->Stringified);
-
-	if(m->size == 0) {
-		tb_StrAdd(m->Stringified, -1, "{}");
-	} else {
-		tb_StrAdd(m->Stringified, -1, "{");
-
-		for (i = 0; i < m->buckets; i++) {
-			tb_hash_node_t node;
-			for(node = m->nodes[i]; node != NULL;) {
-				if(node) {
-					char *(*p)(tb_Object_t) = tb_getMethod(node->value, OM_STRINGIFY);
-					if(p) {
-						char buff[20]; // fixme: may overflow
-						tb_StrAdd(m->Stringified, -1, "%s=%s", 
-											kt_getK2sz(m->kt)(node->key, buff),
-											p(node->value));
-						if(nb++ <m->size-1) {
-							tb_StrAdd(m->Stringified, -1, ", ");
-						}
-					}
-				}
-				node = node->next;
-			}
-		}
-		tb_StrAdd(m->Stringified, -1, "}");
-	}
-	return tb_toStr(m->Stringified);
-}
-#endif
 
 static String_t tb_hash_stringify(Hash_t O) {
   int           i, nb =0;
@@ -758,6 +714,71 @@ static void tb_hash_marshall(String_t marshalled, Hash_t O, int level) {
 	}
 }
 
+
+static Tlv_t tb_hash_toTlv(Hash_t H) {
+  int           i;
+  hash_extra_t  m = XHASH(H);
+	char         *pairs = tb_xcalloc(1, sizeof(int));
+	int           currSize = sizeof(int);
+	int           currOffset = currSize;
+	Tlv_t         T;
+
+	if(m->size == 0) {
+		T = Tlv(TB_HASH, 0, 0);
+	} else {
+		*(int*)pairs = m->size;
+		int nb = 0;
+
+		for(i=0; i<m->buckets; i++) {
+			tb_hash_node_t node;
+			for(node = m->nodes[i]; node != NULL;) {
+				Tlv_t K, V;
+				if(node) {
+					nb++;
+					K = Tlv(TB_STRING, strlen(node->key.key)+1, node->key.key);
+					V = tb_toTlv(node->value);
+					currSize += Tlv_getFullLen(K) + Tlv_getFullLen(V);
+					pairs = tb_xrealloc(pairs, currSize);
+					memcpy(pairs+currOffset, K, Tlv_getFullLen(K));
+					currOffset += Tlv_getFullLen(K);
+					memcpy(pairs+currOffset, V, Tlv_getFullLen(V));
+					tb_xfree(K);
+					tb_xfree(V);
+					currOffset += Tlv_getFullLen(V);
+				}
+				node = node->next;
+			}
+		}
+		T = Tlv(TB_HASH, currSize, pairs);
+		tb_xfree(pairs);
+		if(nb != m->size) {
+			tb_error("tb_hash_toTlv: size inconstitency (should be %s, found %d) \n", m->size, nb);
+		}
+		
+	}
+	return T;
+}
+
+
+static Hash_t tb_hash_fromTlv(Tlv_t T) {
+	Hash_t H    = tb_Hash();
+	int i, sz   = *((int*)Tlv_getValue(T));
+
+	if(sz >0) {
+		char * curr = (char*)(((int *)Tlv_getValue(T))+1);
+
+		for(i=0; i<sz; i++) {
+			String_t K = tb_fromTlv((Tlv_t)curr);
+			curr += (Tlv_getFullLen(((Tlv_t)curr)));
+			tb_hash_insert(H, tb_fromTlv((Tlv_t)curr), (tb_Key_t)tb_toStr(K));
+			tb_Free(K);
+			curr += (Tlv_getFullLen(((Tlv_t)curr)));
+		}
+	}
+	return H;
+}
+
+
 static Hash_t tb_hash_unmarshall(XmlElt_t xml_element) {
 	Vector_t   Ch;
 	Hash_t     Rez;
@@ -781,7 +802,23 @@ static Hash_t tb_hash_unmarshall(XmlElt_t xml_element) {
 				if(streq(S2sz(XELT_getName(Key)), "name") &&
 					 streq(S2sz(XELT_getName(Value)), "value")) {
 
-					tb_Object_t O = tb_XmlunMarshall(tb_Get(XELT_getChildren(Value), 0));
+					tb_Object_t O;
+					XmlElt_t Xe2 = XELT_getFirstChild(Value);
+
+					if(Xe2 && XELT_getType(Xe2) == XELT_TYPE_NODE) {
+						O = tb_XmlunMarshall(Xe2); 
+					} else {
+						O = XELT_getText(Xe2);
+						if(O == NULL) {
+							O = tb_String(NULL);
+						}
+					} 
+
+/* 				} else { */
+/* 					O = tb_XmlunMarshall(Xe); */
+/* 				} */
+
+				//				tb_Object_t O = tb_XmlunMarshall(tb_Get(XELT_getChildren(Value), 0));
 
 					if(O) {
 						tb_Insert(Rez, O, tb_toStr(XELT_getText(tb_Get(XELT_getChildren(Key), 0)))); 

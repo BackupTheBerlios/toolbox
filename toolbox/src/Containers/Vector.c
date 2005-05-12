@@ -1,5 +1,5 @@
 //======================================================
-// $Id: Vector.c,v 1.5 2004/06/15 15:08:27 plg Exp $
+// $Id: Vector.c,v 1.6 2005/05/12 21:51:08 plg Exp $
 //======================================================
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -37,6 +37,7 @@
 
 #include "Memory.h"
 #include "Error.h"
+#include "Tlv.h"
 
 inline vector_members_t XVector(Vector_t V) {
 	return (vector_members_t)((__members_t)tb_getMembers(V, TB_VECTOR))->instance;
@@ -56,9 +57,10 @@ static retcode_t   tb_vector_remove       (Vector_t V, int ndx) ;
 
 static String_t    tb_vector_stringify   (Vector_t V);
 
-
 static void        tb_vector_marshall     (String_t marshalled, Vector_t V, int level);
 static Vector_t    tb_vector_unmarshall   (XmlElt_t xml_element);
+static Vector_t    tb_vector_fromTlv      (Tlv_t T);
+static Tlv_t       tb_vector_toTlv        (Vector_t Self);
 
 static int vector_replace(Vector_t V, tb_Object_t O, int ndx);
 static int vector_swap   (Vector_t V, int ndx1, int ndx2);
@@ -92,6 +94,8 @@ void __build_vector_once(int OID) {
 
 	tb_registerMethod(OID, OM_MARSHALL,     tb_vector_marshall);
 	tb_registerMethod(OID, OM_UNMARSHALL,   tb_vector_unmarshall);
+	tb_registerMethod(OID, OM_TOTLV,        tb_vector_toTlv);
+	tb_registerMethod(OID, OM_FROMTLV,      tb_vector_fromTlv);
 
 }
 
@@ -183,7 +187,7 @@ static retcode_t tb_vector_insert(Vector_t V, tb_Object_t data, int ndx) {
 	if(ndx > m->size) {
 		tb_error("tb_vector_insert: unbound ndx (%d) sz=%d",
 						 ndx, m->size); 
-		set_tb_errno(TB_ERR_OUT_OF_BOUNDS);
+		//		set_tb_errno(TB_ERR_OUT_OF_BOUNDS);
 		return TB_ERR;
 	}
 
@@ -210,7 +214,7 @@ static retcode_t tb_vector_replace(Vector_t V, tb_Object_t data, int ndx) {
 	if(!(ndx < m->size)) {
 		tb_error("tb_vector_add: unbound ndx (%d) sz=%d",
 						 ndx, m->size); 
-		set_tb_errno(TB_ERR_OUT_OF_BOUNDS);
+		//		set_tb_errno(TB_ERR_OUT_OF_BOUNDS);
 		return TB_ERR;
 	}
 
@@ -243,7 +247,7 @@ static retcode_t tb_vector_replace(Vector_t V, tb_Object_t data, int ndx) {
  * @see Container, Vector, tb_Pop
 */
 retcode_t tb_Push(Vector_t V, tb_Object_t data) {
-	no_error;
+	//	no_error;
 	if(TB_VALID(V, TB_VECTOR) &&
 		 tb_valid(data, TB_OBJECT, __FUNCTION__)) {
 		vector_members_t m = XVector(V);
@@ -279,13 +283,13 @@ retcode_t tb_Push(Vector_t V, tb_Object_t data) {
  * @see Container, Vector, tb_Push, tb_Remove
 */
 tb_Object_t tb_Pop(Vector_t V) { 
-	no_error;
+	//	no_error;
 	if(tb_valid(V, TB_VECTOR, __FUNCTION__)) {
 		tb_Object_t obj;
 		vector_members_t m = XVector(V);
 
 		if(m->size == 0) {
-			set_tb_errno(TB_ERR_EMPTY_VALUE);
+			//			set_tb_errno(TB_ERR_EMPTY_VALUE);
 			return NULL;
 		}
 		obj = m->data[m->size -1]; 
@@ -318,7 +322,7 @@ tb_Object_t tb_Pop(Vector_t V) {
  * @see Container, Vector, tb_Shift
  */
 retcode_t tb_Unshift(Vector_t V, tb_Object_t data) {
-	no_error;
+	//	no_error;
 	if(tb_valid(V, TB_VECTOR, __FUNCTION__) &&
 		 tb_valid(data, TB_OBJECT, __FUNCTION__)) {
 		vector_members_t m = XVector(V);
@@ -357,13 +361,13 @@ retcode_t tb_Unshift(Vector_t V, tb_Object_t data) {
  * @see Container, Vector, tb_unShift
  */
 tb_Object_t tb_Shift(Vector_t V) { 
-	no_error;
+	//	no_error;
 	if(tb_valid(V, TB_VECTOR, __FUNCTION__)) {
 		tb_Object_t obj;
 		vector_members_t m = XVector(V);
 
 		if(m->size == 0) {
-			set_tb_errno(TB_ERR_EMPTY_VALUE);
+			//			set_tb_errno(TB_ERR_EMPTY_VALUE);
 			return NULL;
 		}
 		obj = m->data[0];
@@ -389,7 +393,7 @@ static tb_Object_t tb_vector_take(Vector_t V, int ndx) {
 	if(!(ndx < m->size)) {
 		tb_error("tb_vector_take: unbound ndx (%d) sz=%d",
 						 ndx, m->size); 
-		set_tb_errno(TB_ERR_OUT_OF_BOUNDS);
+		//		set_tb_errno(TB_ERR_OUT_OF_BOUNDS);
 		return NULL;
 	}
 
@@ -414,7 +418,7 @@ static retcode_t tb_vector_remove(Vector_t V, int ndx) {
 	if(!(ndx < m->size)) {
 		tb_error("tb_vector_remove(%p): unbound ndx (%d) sz=%d",
 						 V, ndx, m->size); 
-		set_tb_errno(TB_ERR_OUT_OF_BOUNDS);
+		//		set_tb_errno(TB_ERR_OUT_OF_BOUNDS);
 		return TB_ERR;
 	}
 
@@ -433,7 +437,7 @@ static tb_Object_t tb_vector_get(Vector_t V, int ndx) {
 	if(!(ndx < m->size)) {
 		tb_error("tb_vector_get(%p): unbound ndx (%d) sz=%d",
 						 V, ndx, m->size); 
-		set_tb_errno(TB_ERR_OUT_OF_BOUNDS);
+		//		set_tb_errno(TB_ERR_OUT_OF_BOUNDS);
 		return NULL;
 	}
 
@@ -490,7 +494,7 @@ static Vector_t tb_vector_clone(Vector_t V) {
  * @see Container, Vector, tb_freeArgv
  */
 char **tb_toArgv(Vector_t V) {
-	no_error;
+	//	no_error;
 	if(tb_valid(V, TB_VECTOR, __FUNCTION__)) {
 		char **argv;
 		int i, sz, nb = 0;
@@ -579,7 +583,7 @@ static void tb_vector_dump(Vector_t V, int level) {
  */
 Vector_t tb_Merge(Vector_t dst, Vector_t src, int start, int how) {
 
-	no_error;
+	//	no_error;
 
 	if(tb_valid(dst, TB_VECTOR, __FUNCTION__) &&
 		 tb_valid(src, TB_VECTOR, __FUNCTION__)) {
@@ -591,7 +595,7 @@ Vector_t tb_Merge(Vector_t dst, Vector_t src, int start, int how) {
 		if(!(start <= md->size)) {
 			tb_error("tb_Merge (%p): unbound start (%d) sz=%d",
 							 dst, start, md->size); 
-			set_tb_errno(TB_ERR_OUT_OF_BOUNDS);
+			//			set_tb_errno(TB_ERR_OUT_OF_BOUNDS);
 			return NULL;
 		}
 		sz = ms->size;
@@ -650,7 +654,7 @@ Vector_t tb_Merge(Vector_t dst, Vector_t src, int start, int how) {
  * @see Container, Vector, tb_Clone, tb_Alias
  */
 Vector_t tb_Splice(Vector_t V, int start, int len, int how) {
-	no_error;
+	//	no_error;
 	if(tb_valid(V, TB_VECTOR, __FUNCTION__)) {
 		int i;
 		Vector_t W;
@@ -673,13 +677,13 @@ Vector_t tb_Splice(Vector_t V, int start, int len, int how) {
 		if(start > m->size) {
 			tb_error("tb_vector_splice: unbound ndx (%d) sz=%d",
 							 start, m->size); 
-			set_tb_errno(TB_ERR_OUT_OF_BOUNDS);
+			//			set_tb_errno(TB_ERR_OUT_OF_BOUNDS);
 			return NULL;
 		}
 		if(start+len > m->size) {
 			tb_error("tb_vector_splice: unbound len (%d) sz=%d",
 							 len, m->size); 
-			set_tb_errno(TB_ERR_OUT_OF_BOUNDS);
+			//			set_tb_errno(TB_ERR_OUT_OF_BOUNDS);
 			return NULL;
 	
 		}
@@ -724,7 +728,7 @@ Vector_t tb_Splice(Vector_t V, int start, int len, int how) {
  * @see Container, Vector
 */
 int tb_getIdByRef(Vector_t V, tb_Object_t O) {
-	no_error;
+	//	no_error;
 	if(tb_valid(V, TB_VECTOR, __FUNCTION__)) {
 		int i;
 		vector_members_t m = XVector(V);
@@ -749,7 +753,7 @@ int tb_getIdByRef(Vector_t V, tb_Object_t O) {
  * @see Container, tb_Vector, tb_Reverse
 */
 Vector_t tb_Sort(Vector_t V, int (*cmp)(tb_Object_t, tb_Object_t)) {
-	no_error;
+	//	no_error;
 	if(tb_valid(V, TB_VECTOR, __FUNCTION__)) {
 		int h = 1;
 		int N;
@@ -827,7 +831,7 @@ int vector_swap(Vector_t V, int ndx1, int ndx2) {
  * @see Container, Vector, tb_Sort
  */
 Vector_t tb_Reverse(Vector_t V) {
-	no_error;
+	//	no_error;
 	if(tb_valid(V, TB_VECTOR, __FUNCTION__)) {
 		int i = 0, j = XVector(V)->size -1;
 
@@ -926,11 +930,49 @@ static Vector_t tb_vector_unmarshall(XmlElt_t xml_element) {
 
 }
 
+static Tlv_t tb_vector_toTlv(Vector_t Self) {
+  int           i;
+  vector_members_t  m = XVector(Self);
+	char         *items = tb_xcalloc(1, sizeof(int));
+	int           currSize = sizeof(int);
+	int           currOffset = currSize;
+	Tlv_t         T;
 
+	if(m->size == 0) {
+		T = Tlv(TB_VECTOR, sizeof(int), (char *)&(m->size));
+	} else {
+		*((int*)items) = m->size;
 
+		for(i=0; i<m->size; i++) {
+			Tlv_t Item = tb_toTlv(m->data[i]);
+			int ItemSize = Tlv_getFullLen(Item);
+			currSize += ItemSize;
+			items = tb_xrealloc(items, currSize);
+			memcpy(items+currOffset, Item, ItemSize);
+			currOffset += ItemSize;
+			tb_xfree(Item);
+		}
 
+		T = Tlv(TB_VECTOR, currSize, items);
+		tb_xfree(items);
+	}
 
+	return T;
+}
 
+static Vector_t tb_vector_fromTlv(Tlv_t T) {
+	Vector_t V = tb_Vector();
+	int i , sz = *((int*)Tlv_getValue(T));
+	if(sz>0) {
+		char *curr = (char*)(((int *)Tlv_getValue(T))+1);
+		for(i=0; i<sz; i++) {
+			tb_Push(V, tb_fromTlv((Tlv_t)curr)); // FIXME: optimize this (inner push should not validate V)
+			curr += (Tlv_getFullLen(((Tlv_t)curr)));
+		}
+	}
+
+	return V;
+}
 
 
 

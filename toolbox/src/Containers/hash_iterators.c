@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 2; indent-tabs-mode: t; c-basic-offset: 2 -*- */
 //======================================================
-// $Id: hash_iterators.c,v 1.2 2004/05/24 16:37:52 plg Exp $
+// $Id: hash_iterators.c,v 1.3 2005/05/12 21:51:08 plg Exp $
 //======================================================
 
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
@@ -103,11 +103,12 @@ static void hash_freeIterCtx(Hash_t H) {
 
 static retcode_t hash_find(Iterator_t It, tb_Key_t key) {
 	hashIter_t hi = (hashIter_t)__getIterCtx(It);
-	tb_hash_node_t *node;
+	tb_hash_node_t node;
+	int i;
 	if(hi == NULL) return TB_ERR;
-  if((node = tb_hash_lookup_node(hi->H, key))) {
-		if(*node) {
-			hi->cur_node = (*node);
+  if((node = Hash_lookup(hi->H, key, &i))) {
+		if(node) {
+			hi->cur_node = (node);
 			hi->cur_ndx = 0;
 			hi->dup_ndx = 0;
 			return TB_OK;

@@ -1,5 +1,5 @@
 //------------------------------------------------------------------
-// $Id: bpt_iterators.c,v 1.1 2004/05/12 22:04:50 plg Exp $
+// $Id: bpt_iterators.c,v 1.2 2005/05/12 21:51:08 plg Exp $
 //------------------------------------------------------------------
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -41,6 +41,8 @@ _iterator_ctx_t bpt_newIterCtx(Dict_t D) {
 }
 
 void bpt_freeIterCtx(Dict_t D) {
+	dictIter_t bpi = (dictIter_t)__getIterCtx(D);
+	tb_xfree(bpi);
 	return;
 }
 

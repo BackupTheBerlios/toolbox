@@ -1,5 +1,5 @@
 //===================================================
-// $Id: bplus_tree.c,v 1.2 2004/05/24 16:37:52 plg Exp $
+// $Id: bplus_tree.c,v 1.3 2005/05/12 21:51:08 plg Exp $
 //===================================================
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -961,13 +961,13 @@ static int bpt_add(bptree_t Btree, tb_Key_t key, void *value, int allow_replace)
 			switch( Btree->dupe_policy ) {
 			case 0: // no dupes allowed
 				if( allow_replace ) {
-					tb_warn("key overwritten\n");
+					//					tb_warn("key overwritten\n");
 					TB_UNDOCK(node->ptrs[ndx]);
 					tb_Free(node->ptrs[ndx]);
 					node->ptrs[ndx] = value; 
 					return TB_OK;
 				}
-				tb_warn("key already exists !\n");
+				tb_warn("bpt_add: key<%s> already exists !\n", key);
 				TB_UNDOCK((tb_Object_t)value);
 				return TB_KO;
 			case 1: // dupes welcomes
@@ -1184,6 +1184,7 @@ Dict_t tb_dict_clear(Dict_t D) {
 		fm_fastfree_off();
 		Btree->cnt = Btree->size = 0;
 		Btree->root = Btree->first = Btree->last = NULL;
+		Btree->root = bpt_newNode( Btree );
 	}
 	return D;
 }
