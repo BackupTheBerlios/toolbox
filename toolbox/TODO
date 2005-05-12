@@ -1,4 +1,4 @@
-last cranked : $Id: TODO,v 1.1 2004/05/12 22:04:47 plg Exp $
+last cranked : $Id: TODO,v 1.2 2005/05/12 21:24:17 plg Exp $
 -----------------------------------------------------------------------
 
 + event loop
@@ -11,38 +11,9 @@ last cranked : $Id: TODO,v 1.1 2004/05/12 22:04:47 plg Exp $
 
 - separate memory pools (so we can wipe out a entire complex structure like a B+Tree at once)
 
-- integrate RW_locks into objects (tb_Share)
-- convert WPool to tb_Object class, add parallelizing launchers, and thread group joining
-
-
-- Vector with conditionnal stepping ?)
-
-- trace: soft/dynamic interface w/ syslog
- - (may be) add __FUNCTION__ macro in traces (say, in TB_DEBUG TO TB_NOTICE)
-
 ++ Move tb_errorlevel to (thread specific ?) hidden space, and setup accessors and mutators
 
 - circular log
 
-- new type : date (ISO/ctime/epoch+s/...)
-
-modules:
-- tb_www
- - protocols :
-   + http 1.1 (almost done, client 80%, server ~usable~, cookie support incomplete)
-   - ftp
-	 - Mail
-    + smtp 
-	  + pop
-    - imap
-    + rfc822
-
-- tb_mime  (almost done)
-
--tb_Sql : 
-	+ make it into real tb_Object class
-	+ add transaction safe management
-	- add cursor feature (to select a whole row[n] )	
-	- merge with db_db
 
 
