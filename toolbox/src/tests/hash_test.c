@@ -1,4 +1,7 @@
-// $Id: hash_test.c,v 1.2 2004/05/24 16:37:53 plg Exp $
+// $Id: hash_test.c,v 1.3 2005/05/12 21:52:40 plg Exp $
+
+
+#define TB_MEM_DEBUG
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -47,8 +50,8 @@ int main(int argc, char **argv) {
 		tb_Dump(H);
 
 
-		tb_trace(TB_WARN, "exists key '0001' in H ? : %d ", tb_Exists(H, "0001"));
-		tb_trace(TB_WARN, "exists key '0001' in Z ? : %d ", tb_Exists(Z, "0001"));
+		tb_warn("exists key '0001' in H ? : %d ", tb_Exists(H, "0001"));
+		tb_warn("exists key '0001' in Z ? : %d ", tb_Exists(Z, "0001"));
 
 		tb_profile("Peek Z{'0002'} :\n");
 		tb_Dump(tb_Get(Z, "0002"));
@@ -59,13 +62,13 @@ int main(int argc, char **argv) {
 		tb_Dump(S = tb_Take(Z, "0002"));
 
 		tb_Dump(tb_Get(Z, "0001"));
-		tb_trace(TB_WARN, "exists key '0002' in Z ? :%d ", tb_Exists(Z, "0002"));
+		tb_warn("exists key '0002' in Z ? :%d ", tb_Exists(Z, "0002"));
 		tb_Dump(S);
 		tb_Remove(Z, "0003");
-		tb_trace(TB_WARN, "exists key '0003' in Z ? :%d ", tb_Exists(Z, "0003"));
+		tb_warn("exists key '0003' in Z ? :%d ", tb_Exists(Z, "0003"));
 
 		V = tb_HashKeys(Z);
-		tb_trace(TB_WARN, "Got %d keys", tb_getSize(V));
+		tb_warn("Got %d keys", tb_getSize(V));
 
 
 		//		tb_HashNormalize(Z);
@@ -78,7 +81,7 @@ int main(int argc, char **argv) {
 		tb_Insert(H, tb_String("ABC"), "abC");
 		tb_Insert(H, tb_String("DEF"), "AbC");
 
-		tb_profile("tb_errno = %d\n", tb_errno);
+		//		tb_profile("tb_errno = %d\n", tb_errno);
 
 		tb_Replace(H, tb_String("GHI"), "aBc");
 
@@ -100,7 +103,7 @@ int main(int argc, char **argv) {
 		// --
 
 
-		tb_profile("tb_errno = %d\n", tb_errno);
+		//		tb_profile("tb_errno = %d\n", tb_errno);
 
 
 		tb_Replace(H, tb_String("GHI"), "aBc");
@@ -130,8 +133,9 @@ int main(int argc, char **argv) {
 		tb_profile("remove from H");
 		tb_Remove(H, "first");
 		tb_Dump(H);
+		tb_Dump(S);
+		tb_profile("free H");
 		tb_Free(H);
-
 		tb_Dump(S);
 
 		tb_profile("free T");

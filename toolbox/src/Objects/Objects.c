@@ -1,5 +1,5 @@
 // ===============================================================================
-// $Id: Objects.c,v 1.5 2004/06/15 15:08:27 plg Exp $
+// $Id: Objects.c,v 1.6 2005/05/12 21:51:51 plg Exp $
 // ===============================================================================
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -79,9 +79,13 @@ int	OM_CLONE;
 int	OM_DUMP;
 int	OM_CLEAR;
 int	OM_COMPARE;
+int	OM_SET;
 int	OM_INSPECT; // NYI -> to be used to allow self inspection and reflection
 int	OM_STRINGIFY;
 
+
+extern void __dump_call_stack();
+extern int __full_debug__;
 
 static tb_Object_t   tb_object_new   (void);
 static void        * tb_object_free  (tb_Object_t O);
@@ -137,15 +141,22 @@ int tb_valid(void *O, int tb_type, char* func_name) {
 	if(O) {
 		int rc = TB_VALID(O, tb_type);
 		if(! rc) {
-			tb_error("%s: %p not a %s\n", func_name, O, __class_name_of(tb_type));
-			set_tb_errno(TB_ERR_INVALID_TB_OBJECT);
-		} else {
-			no_error;
-		}
+			tb_error("%s: [%s]@%p not a %s\n", 
+							 func_name, tb_nameOf(tb_isA(O)), O, __class_name_of(tb_type));
+			if(__full_debug__) {
+				__dump_call_stack();
+			}
+			//			set_tb_errno(TB_ERR_INVALID_TB_OBJECT);
+		} /* else { */
+/* 			no_error; */
+/* 		} */
 		return rc;
 	}
 	tb_error("%s: pointer to object is NULL\n", func_name);
-	set_tb_errno( TB_ERR_OBJECT_IS_NULL ); 
+	if(__full_debug__) {
+		__dump_call_stack();
+	}
+	//	set_tb_errno( TB_ERR_OBJECT_IS_NULL ); 
 	return TB_KO;
 }
 
@@ -159,6 +170,7 @@ void __build_object_once(int OID) {
 	OM_DUMP        = tb_registerNew_ClassMethod("Dump",         OID);
 	OM_CLEAR       = tb_registerNew_ClassMethod("Clear",        OID);
 	OM_COMPARE     = tb_registerNew_ClassMethod("Compare",      OID);
+	OM_SET         = tb_registerNew_ClassMethod("Set",          OID);
 	OM_INSPECT     = tb_registerNew_ClassMethod("Inspect",      OID);
 
 	OM_STRINGIFY   = tb_registerNew_ClassMethod("Stringify",    OID);
@@ -174,10 +186,18 @@ void __build_object_once(int OID) {
 inline void *tb_getMethod(tb_Object_t O, int Mid) {
 	void *p = __getMethod(tb_isA(O), Mid);
 	if(p == NULL) {
-		tb_error("tb_getMethod[%p]: no such method (%s)\n", O, __method_name_of(Mid));
+		tb_error("tb_getMethod[%s@%p]::%s no such method\n", 
+						 tb_nameOf(tb_isA(O)),
+						 O, 
+						 __method_name_of(Mid));
+
 		set_tb_errno(TB_ERR_NO_SUCH_METHOD);
 	}
 	return p;
+}
+
+inline int tb_getClassIdByName(char *class_name) {
+	return __class_idOf(class_name);
 }
 
 inline void *tb_getMethodByName(tb_Object_t O, char *method_name) {
@@ -266,7 +286,7 @@ tb_Object_t tb_object_new(void) {
   This = (tb_Object_t)tb_xcalloc(1, sizeof(struct tb_Object));
 	This->refcnt = 1;
 	This->members = (__members_t)tb_xcalloc(1, sizeof(struct __members));
-	This->members->instance_type = TB_OBJECT;
+	This->isA = This->members->instance_type = TB_OBJECT;
 
 	return This;
 }
@@ -275,8 +295,10 @@ tb_Object_t tb_object_new(void) {
 void *tb_object_free(tb_Object_t O) {
 	if(tb_valid(O, TB_OBJECT, __FUNCTION__)) {
 		O->isA = 0xdead;
+		if(O->members && O->members->instance) tb_xfree(O->members->instance);
 		tb_xfree(O->members);
 		tb_xfree(O);
+		if(fm->dbg) fm_delObject(O);
 	} 
 	return NULL; // no more cascading destructors
 }
@@ -366,13 +388,21 @@ void tb_Dump(tb_Object_t O) {
 	}
 }
 
-
+/** 
+ * Compare two objects according to their types.
+ * Objects must be of same type (2nd object can derivate from 1st's class)
+ * 
+ * @param O1 
+ * @param O2 
+ * 
+ * @return TB_CMP_ERR if types mismatches or 0 if equal, less than 0 if O1 < O2, else more than 0
+ */
 cmp_retval_t tb_Compare(tb_Object_t O1, tb_Object_t O2) {
 	void *p;
 	if(tb_valid(O1, TB_OBJECT, __FUNCTION__) &&
 		 tb_valid(O2, TB_OBJECT, __FUNCTION__)) {
 		
-		if(tb_isA(O1) == tb_isA(O2)) {
+		if(TB_VALID(O1, tb_isA(O2))) {
 			if((p = tb_getMethod(O1, OM_COMPARE))) {
 				return ((cmp_retval_t(*)(tb_Object_t, tb_Object_t))p)(O1, O2); 
 			} else {
@@ -380,10 +410,41 @@ cmp_retval_t tb_Compare(tb_Object_t O1, tb_Object_t O2) {
 				tb_error("%p (%d) [no compare method]\n", O1, O1->isA);
 			}
 		} else {
-			tb_error("tb_Compare: objects type mismatch\n");
+			tb_error("tb_Compare: objects type mismatch (%s/%s)\n", 
+							 tb_nameOf(tb_isA(O1)), tb_nameOf(tb_isA(O2)));
 		}
 	}
 	return TB_CMP_ERR;
+}
+
+
+/**
+ * Assign Object's 2 value to Object 1
+ * (must be of same type of course)
+ * 
+ * @param O1 target object
+ * @param O2 source object
+ * 
+ * @return target object or NULL if object types mismatches
+ */
+tb_Object_t tb_Set(tb_Object_t O1, tb_Object_t O2) {
+	void *p;
+	if(tb_valid(O1, TB_OBJECT, __FUNCTION__) &&
+		 tb_valid(O2, TB_OBJECT, __FUNCTION__)) {
+		
+		if(TB_VALID(O1, tb_isA(O2))) {
+			//tb_isA(O1) == tb_isA(O2)) {
+			if((p = tb_getMethod(O1, OM_SET))) {
+				return ((tb_Object_t(*)(tb_Object_t, tb_Object_t))p)(O1, O2); 
+			} else {
+				set_tb_errno(TB_ERR_NO_SUCH_METHOD);
+				tb_error("%p (%d) [no Set method]\n", O1, O1->isA);
+			}
+		} else {
+			tb_error("objects type mismatch (%s/%s)\n", tb_nameOf(tb_isA(O1)), tb_nameOf(tb_isA(O2)));
+		}
+	}
+	return NULL;
 }
 
 
@@ -495,12 +556,14 @@ void tb_Free(tb_Object_t O) {
 		O->refcnt --;
 	}
 
-	if( O->docked == 0 ) {
-		if( O->refcnt == 0) {
+	if(O->docked<0 || O->refcnt<0) {
+		tb_error("tb_Free: Obj's <%p> bad refcnt : refcnt=%d / dockcnt=%d\n", O->docked, O->refcnt<0);
+	}
+
+	if( O->docked <= 0 ) {
+		if( O->refcnt <= 0) {
 
 			p = tb_getMethod(O, OM_FREE);
-			if(fm->dbg) fm_delObject(O);
-
 			// destructor calls ancestor's one up to innermost level : tb_Object_t
 			while( p ) {
 				p = ((void *(*)(tb_Object_t))p)(O); 

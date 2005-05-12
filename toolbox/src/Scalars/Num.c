@@ -1,5 +1,5 @@
 //------------------------------------------------------------------
-// $Id: Num.c,v 1.5 2004/07/01 21:43:12 plg Exp $
+// $Id: Num.c,v 1.6 2005/05/12 21:52:12 plg Exp $
 //------------------------------------------------------------------
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -40,13 +40,18 @@
 
 #include "Memory.h"
 #include "Error.h"
+#include "Tlv.h"
 
+int OM_NUMSET;
 
 inline num_members_t XNum(Num_t N) {
 	return (num_members_t)((__members_t)tb_getMembers(N, TB_NUM))->instance;
 }
 
-static Num_t        tb_num_new          (int val);
+static Tlv_t        tb_num_toTlv        (Num_t Self);
+static Num_t        tb_num_fromTlv      (Tlv_t T);
+static Num_t        tb_num_ctor         (Num_t N,int val);
+static Num_t        tb_num_new          ();
 static void *       tb_num_free         (Num_t N);
 static Num_t        tb_num_clone        (Num_t N);
 static Num_t        tb_num_clear        (Num_t N);
@@ -56,9 +61,12 @@ static void         tb_num_marshall     (String_t marshalled, Raw_t R, int level
 static Num_t        tb_num_unmarshall   (XmlElt_t xml_entity);
 static String_t     tb_num_stringify    (Num_t N);
 static cmp_retval_t tb_num_compare      (Num_t N1, Num_t N2);
-
+static Num_t        tb_num_set          (Num_t N, int val);
+static Num_t        tb_num_assign       (Num_t N1, Num_t N2);
 
 void __build_num_once(int OID) {
+	OM_NUMSET      = tb_registerNew_ClassMethod("NumSet",       OID);
+
 	tb_registerMethod(OID, OM_NEW,          tb_num_new);
 	tb_registerMethod(OID, OM_FREE,         tb_num_free);
 	tb_registerMethod(OID, OM_GETSIZE,      tb_num_getsize);
@@ -66,9 +74,13 @@ void __build_num_once(int OID) {
 	tb_registerMethod(OID, OM_DUMP,         tb_num_dump);
 	tb_registerMethod(OID, OM_CLEAR,        tb_num_clear);
 	tb_registerMethod(OID, OM_COMPARE,      tb_num_compare);
+	tb_registerMethod(OID, OM_SET,          tb_num_assign);
 
 	//	tb_registerMethod(OID, OM_STRINGIFY,    N2sz);
 	tb_registerMethod(OID, OM_STRINGIFY,    tb_num_stringify);
+
+
+	tb_registerMethod(OID, OM_NUMSET,        tb_num_set);
 
 	tb_implementsInterface(OID, "C_Castable", 
 												 &__c_castable_build_once, build_c_castable_once);
@@ -78,16 +90,18 @@ void __build_num_once(int OID) {
 
 	tb_implementsInterface(OID, "Serialisable", 
 												 &__serialisable_build_once, build_serialisable_once);
-
 	tb_registerMethod(OID, OM_MARSHALL,     tb_num_marshall);
 	tb_registerMethod(OID, OM_UNMARSHALL,   tb_num_unmarshall);
+	tb_registerMethod(OID, OM_TOTLV,        tb_num_toTlv);
+	tb_registerMethod(OID, OM_FROMTLV,      tb_num_fromTlv);
+
 }
 
 
 
 Num_t dbg_tb_num(char *func, char *file, int line, int val) {
 	set_tb_mdbg(func, file, line);
-	return tb_num_new(val);
+	return tb_num_ctor(tb_num_new(), val);
 }
 
 /** Num_t constructor.
@@ -102,7 +116,7 @@ Num_t dbg_tb_num(char *func, char *file, int line, int val) {
  * @ingroup Num
 */
 Num_t tb_Num(int value) {
-	return tb_num_new(value);
+	return tb_num_ctor(tb_num_new(), value);
 }
 
 
@@ -119,7 +133,24 @@ Num_t tb_Num(int value) {
  * @see: Object, Scalar, Num
  * @ingroup Num
  */
+
 Num_t tb_NumSet(Num_t N, int val) {
+	if(tb_valid(N, TB_NUM, __FUNCTION__)) {
+		void *p;
+
+		if((p = tb_getMethod(N, OM_NUMSET))) {
+			return ((Num_t(*)(Num_t, int val))p)(N, val);
+		} else {
+			tb_error("%p (%d:%s) [no numSet method]\n", N, N->isA, tb_nameOf(N->isA));
+			set_tb_errno(TB_ERR_NO_SUCH_METHOD);
+		}
+	}
+	return NULL;
+
+}
+
+
+static Num_t tb_num_set(Num_t N, int val) {
 	if(! tb_valid(N, TB_NUM, __FUNCTION__)) return NULL;
 	num_members_t m = XNum(N);
   m->value = val;
@@ -130,8 +161,12 @@ Num_t tb_NumSet(Num_t N, int val) {
 }
 
 static cmp_retval_t tb_num_compare(Num_t N1, Num_t N2) {
-	if(XNum(N1)->value == XNum(N2)->value) return TB_CMP_IS_EQUAL;
-	return (XNum(N1)->value > XNum(N2)->value) ? TB_CMP_IS_GREATER : TB_CMP_IS_LOWER;
+	if(tb_toInt(N1) == tb_toInt(N2)) return TB_CMP_IS_EQUAL;
+	return (tb_toInt(N1) > tb_toInt(N2)) ? TB_CMP_IS_GREATER : TB_CMP_IS_LOWER;
+}
+
+static Num_t tb_num_assign(Num_t N1, Num_t N2) {
+	return tb_num_set(N1, XNum(N2)->value);
 }
 
 static String_t tb_num_stringify(Num_t N) {
@@ -161,22 +196,28 @@ static int tb_num_getsize(Num_t N) {
 	return XNum(N)->size;
 }
 
-static Num_t tb_num_new(int val) {
+static Num_t tb_num_new() {
 	tb_Object_t This;
 	num_members_t m;
-	pthread_once(&__class_registry_init_once, tb_classRegisterInit);
 	This =  tb_newParent(TB_NUM); 
 	
 	This->isA = TB_NUM;
 	This->members->instance = tb_xcalloc(1, sizeof(struct num_members));
 	m = (num_members_t)This->members->instance;
 	m->size  = sizeof(int);
-	m->value = val;
-	snprintf(m->strbuff, 20, "%d", val);
 	if(fm->dbg) fm_addObject(This);
 
 	return This;
 }
+
+static Num_t tb_num_ctor(Num_t Self, int val) {
+	num_members_t m = (num_members_t)Self->members->instance;
+	m->size  = sizeof(int);
+	m->value = val;
+	snprintf(m->strbuff, 20, "%d", val);
+	return Self;
+}
+
 
 static void *tb_num_free(Num_t N) {
 	tb_freeMembers(N);
@@ -187,7 +228,7 @@ static void *tb_num_free(Num_t N) {
 static Num_t tb_num_clone(Num_t N) {
 	Num_t M;
 	if(! TB_VALID(N, TB_NUM)) return NULL;
-	M = tb_num_new(XNum(N)->value);
+	M = tb_num_ctor(tb_num_new(), XNum(N)->value);
 
 	return M;
 }
@@ -253,7 +294,15 @@ static Num_t tb_num_unmarshall(XmlElt_t xml_entity) {
 }
 
 
+Tlv_t tb_num_toTlv(Num_t Self) {
+	num_members_t m = XNum(Self);
+	return Tlv(TB_NUM, sizeof(int), (char *)&(m->value));
+}
 
+Num_t tb_num_fromTlv(Tlv_t T) {
+	int val   = *(((int*)T)+2);
+	return tb_Num(val);
+}
 
 
 

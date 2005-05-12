@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 2; indent-tabs-mode: t; c-basic-offset: 2 -*- */
 //======================================================
-// $Id: Date.h,v 1.2 2004/05/13 22:07:05 plg Exp $
+// $Id: Date.h,v 1.3 2005/05/12 21:52:12 plg Exp $
 //======================================================
 
 // created on Sun May  9 15:48:00 2004
@@ -62,7 +62,7 @@ Date_t       Dt_addMins        (Date_t This, int nb);
 Date_t       Dt_subMins        (Date_t This, int nb);
 Date_t       Dt_addSecs        (Date_t This, int nb);
 Date_t       Dt_subSecs        (Date_t This, int nb);
-
+char *       Dt_toCtime        (Date_t This, char *buffer);
 
 #endif
 

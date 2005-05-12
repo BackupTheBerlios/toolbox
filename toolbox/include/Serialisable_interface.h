@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 2; indent-tabs-mode: t; c-basic-offset: 2 -*- */
 //======================================================
-// $Id: Serialisable_interface.h,v 1.2 2004/07/01 21:37:18 plg Exp $
+// $Id: Serialisable_interface.h,v 1.3 2005/05/12 21:54:36 plg Exp $
 //======================================================
 // created on Thu Aug  1 15:23:25 2002
 
@@ -24,10 +24,19 @@
 #define __SERIALISABLE_INTERFACE_H
 
 #include <pthread.h>
+#include "Toolbox.h"
+#include "Tlv.h"
 
 extern int IFACE_SERIALISABLE;
 extern int OM_MARSHALL;
 extern int OM_UNMARSHALL;
+
+extern int OM_TOTLV;
+extern int OM_FROMTLV;
 extern pthread_once_t __serialisable_build_once;   
 void build_serialisable_once();
+
+Tlv_t       tb_toTlv    (tb_Object_t O);
+tb_Object_t tb_fromTlv  (Tlv_t T);
+
 #endif

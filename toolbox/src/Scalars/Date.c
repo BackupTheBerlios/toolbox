@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 2; indent-tabs-mode: t; c-basic-offset: 2 -*- */
 //------------------------------------------------------------------
-// $Id: Date.c,v 1.4 2004/05/26 16:11:23 plg Exp $
+// $Id: Date.c,v 1.5 2005/05/12 21:52:12 plg Exp $
 //------------------------------------------------------------------
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -178,4 +178,11 @@ int tb_DateCmp(Date_t Dt1, Date_t Dt2) {
  */
 Date_t DateNow() {
 	return Date_fromTime(time(NULL));
+}
+
+char * Dt_toCtime(Date_t This, char *buff) {
+	if(tb_valid(This, TB_DATE, __FUNCTION__)) {
+		return ctime_r(&(XDate(This)->absolute), buff);
+	} 
+	return NULL;
 }

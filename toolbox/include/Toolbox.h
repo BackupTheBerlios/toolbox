@@ -1,5 +1,5 @@
 //============================================================
-// 	$Id: Toolbox.h,v 1.6 2004/07/01 21:37:18 plg Exp $
+// 	$Id: Toolbox.h,v 1.7 2005/05/12 21:54:36 plg Exp $
 //============================================================
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -64,7 +64,7 @@ enum tb_loglevels {
 
 
 #ifndef RELEASE
-#define tb_debug(x...)   tb_trace(TB_DEBUG, x)
+#define tb_debug(x...)   tb_trace(TB_DEBUG, __FUNCTION__, x)
 #define TB_ASSERT(A)      assert(A)
 #else
 #define tb_debug(x...)   
@@ -76,37 +76,37 @@ enum tb_loglevels {
 /** Info level logging
  * \ingroup Global
  * @see tb_trace  */
-#define tb_info(x...)    tb_trace(TB_INFO, x)   
+#define tb_info(x...)    tb_trace(TB_INFO, __FUNCTION__, x)   
 
 /** Notice level logging
  * \ingroup Global
  * @see tb_trace  */
-#define tb_notice(x...)  tb_trace(TB_NOTICE, x)
+#define tb_notice(x...)  tb_trace(TB_NOTICE, __FUNCTION__,x)
 
 /** Warn level logging
  * \ingroup Global
  * @see tb_trace  */
-#define tb_warn(x...)    tb_trace(TB_WARN, x) 
+#define tb_warn(x...)    tb_trace(TB_WARN, __FUNCTION__,x) 
 
 /** Error level logging
  * \ingroup Global
  * @see tb_trace  */
-#define tb_error(x...)   tb_trace(TB_ERROR, x) 
+#define tb_error(x...)   tb_trace(TB_ERROR, __FUNCTION__,x) 
 
 /** Crit level logging
  * \ingroup Global
  * @see tb_trace  */
-#define tb_crit(x...)    tb_trace(TB_CRIT, x) 
+#define tb_crit(x...)    tb_trace(TB_CRIT, __FUNCTION__,x) 
 
 /** Alert level logging
  * \ingroup Global
  * @see tb_trace  */
-#define tb_alert(x...)   tb_trace(TB_ALERT, x)
+#define tb_alert(x...)   tb_trace(TB_ALERT, __FUNCTION__,x)
 
 /** Emerg/Fatal level logging
  * \ingroup Global
  * @see tb_trace  */
-#define tb_fatal(x...)   tb_trace(TB_FATAL, x)
+#define tb_fatal(x...)   tb_trace(TB_FATAL, __FUNCTION__,x)
 
 
 
@@ -224,7 +224,7 @@ extern TB_LOGLEVELS tb_errorlevel;
 #define TB_ITERATOR      13
 #define TB_XMLDOC        14
 #define TB_XMLELT        15
-
+#define TB_BOOL          16
 // ---------< Types >------------------------------------------
 
 /**
@@ -294,6 +294,12 @@ typedef Scalar_t              String_t;
  * @see Scalar_t, tb_Num
  */
 typedef Scalar_t              Num_t;
+
+/**
+ * Dedicated storage for boolean types.
+ * @see Scalar_t, tb_Bool
+ */
+typedef Scalar_t              Bool_t;
 
 /**
  * Encapsulates unknown/untyped pointer.
@@ -452,6 +458,7 @@ tb_Object_t   tb_XmlunMarshall  (XmlElt_t X);
 String_t      tb_Marshall       (tb_Object_t O);
 
 cmp_retval_t  tb_Compare        (tb_Object_t O1, tb_Object_t O2);
+tb_Object_t   tb_Set            (tb_Object_t O1, tb_Object_t O2);
 
 int           tb_EncodeBase64   (void *data, int size, char **str);
 int           tb_DecodeBase64   (char *str, void **data);
@@ -711,6 +718,7 @@ void     *tb_getServArgs                     (Socket_t O);
 int       tb_getSockFD                       (Socket_t O);
 retcode_t tb_setServMAXTHR                   (Socket_t O, int max);
 int       tb_getServMAXTHR                   (Socket_t O);
+int       tb_getServTHR                      (Socket_t O);
 retcode_t tb_setSockTO                       (Socket_t S, long int sec, long int usec);
 retcode_t tb_getSockTO                       (Socket_t S, long int *sec, long int *usec);
 int       tb_getSockStatus                   (Socket_t S);
@@ -718,7 +726,7 @@ void     *tb_Accept                          (void * S); // arg must be a tb_Soc
 int       tb_readSock                        (Socket_t So, String_t msg, int len);
 int       tb_readSockLine                    (Socket_t O, String_t msg);
 int       tb_writeSock                       (Socket_t So, char *msg);
-
+int       tb_writeSockBin                    (Socket_t S, Raw_t raw);
 #define CLOSE_END          1
 #define DONT_CLOSE         0
 
@@ -732,8 +740,11 @@ XmlDoc_t     tb_XmlDoc                  (char *xmltext);
 String_t     XDOC_to_xml                (XmlDoc_t Doc);
 XmlElt_t     XDOC_getRoot               (XmlDoc_t X);
 retcode_t    XDOC_setRoot               (XmlDoc_t Doc, XmlElt_t newRoot);
+/* XmlElt_t     tb_XmlElt                  (int ElmType, XmlElt_t parent, */
+/* 																				 char *name, char **attr); */
 XmlElt_t     tb_XmlElt                  (int ElmType, XmlElt_t parent,
-																				 char *name, char **attr);
+																				 char *name, Hash_t Attr);
+
 Vector_t     XELT_getChildren           (XmlElt_t X);
 XmlElt_t     XELT_getParent             (XmlElt_t X);
 String_t     XELT_getName               (XmlElt_t X);
@@ -746,7 +757,8 @@ XmlElt_t     tb_XmlNodeElt              (XmlElt_t parent, char *name, Hash_t Att
 retcode_t    XELT_addAttributes         (XmlElt_t X, Hash_t newAttr);
 int          XELT_setName               (XmlElt_t X, char *name);
 int          XELT_setText               (XmlElt_t X, char *text);
-
+XmlElt_t     XELT_getFirstChild         (XmlElt_t xml);
+String_t     XELT_getTextChild          (XmlElt_t xml);
 //-------< Regex >-------------------------------------------------------
 
 // for extensive infos look at pcre's own doc (man 7 pcre)
@@ -780,9 +792,14 @@ int     tb_Sed              (char *search,      // search pattern string
 														 int options);      // See PCRE options
 
 Hash_t tb_readConfig(char *file);
-void      tb_trace            (int level, char *format, ...);
+void   tb_trace            (int level, const char *func, const char *format, ...);
 void tb_profile(char *format, ...);
 
+String_t  tb_loadFile    (char *file);
+retcode_t tb_saveFile    (char *file, String_t data);
+retcode_t tb_fileExists  (char *file);
+int       tb_Crunch      (String_t Source, String_t Dest);
+int       tb_Decrunch      (String_t Source, String_t Dest);
 #ifndef __C2MAN__
 
 
@@ -812,13 +829,15 @@ extern char * (*tb_xstrdup)  (char *);
 extern void   (*tb_xfree)    (void *);
 
 
-#if defined TB_MEM_DEBUG && (! defined NDEBUG)
+//#if defined TB_MEM_DEBUG && (! defined NDEBUG)
 
 #define tb_xmalloc(A)      xMalloc   (__FUNCTION__, __FILE__, __LINE__, A)
 #define tb_xcalloc(A,B)    xCalloc   (__FUNCTION__, __FILE__, __LINE__, A, B)
 #define tb_xrealloc(A,B)   xRealloc  (__FUNCTION__, __FILE__, __LINE__, A, B)
 #define tb_xstrdup(A)      xStrdup   (__FUNCTION__, __FILE__, __LINE__, A)
 #define tb_xfree(A)        xFree     (__FUNCTION__, __FILE__, __LINE__, A)
+
+#if defined TB_MEM_DEBUG && (! defined NDEBUG)
 
 
 #ifndef __BUILD // when building toolbox, we de-activate this (to avoid preproc loops)

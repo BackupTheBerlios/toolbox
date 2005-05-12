@@ -1,5 +1,5 @@
 //------------------------------------------------------------------
-// $Id: Pointer.c,v 1.3 2004/07/01 21:44:35 plg Exp $
+// $Id: Pointer.c,v 1.4 2005/05/12 21:52:12 plg Exp $
 //------------------------------------------------------------------
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -32,6 +32,8 @@
 #include "Pointer.h"
 #include "Objects.h"
 #include "tb_ClassBuilder.h"
+#include "Serialisable_interface.h"
+#include "Tlv.h"
 
 #include "Memory.h"
 
@@ -39,8 +41,11 @@ inline pointer_members_t XPtr(Pointer_t P) {
 	return (pointer_members_t)((__members_t)tb_getMembers(P, TB_POINTER))->instance;
 }
 
-static Pointer_t Pointer_new    ();
-static Pointer_t Pointer_clear  (Pointer_t Self);
+//#define XPTR(P) ((void *)P->members->instance)
+
+
+static Tlv_t     tb_pointer_toTlv    (Pointer_t Self);
+static Pointer_t tb_pointer_fromTlv  (Tlv_t T);
 
 void __build_pointer_once(int OID) {
 	tb_registerMethod(OID, OM_NEW,          Pointer_new);
@@ -48,6 +53,12 @@ void __build_pointer_once(int OID) {
 	tb_registerMethod(OID, OM_GETSIZE,      tb_pointer_getsize);
 	tb_registerMethod(OID, OM_DUMP,         tb_pointer_dump);
 	tb_registerMethod(OID, OM_CLEAR,        Pointer_clear);
+
+	tb_implementsInterface(OID, "Serialisable", 
+												 &__serialisable_build_once, build_serialisable_once);
+	tb_registerMethod(OID, OM_TOTLV,        tb_pointer_toTlv);
+	tb_registerMethod(OID, OM_FROMTLV,      tb_pointer_fromTlv);
+
 }
 
 
@@ -122,7 +133,7 @@ Pointer_t Pointer_ctor(Pointer_t Self, void *p, void *free_fnc) {
 	return Self;
 }
 
-static Pointer_t Pointer_new() {
+Pointer_t Pointer_new() {
 	tb_Object_t This;
 	pointer_members_t m;
 	pthread_once(&__class_registry_init_once, tb_classRegisterInit);
@@ -185,7 +196,7 @@ void tb_pointer_dump(Pointer_t P, int level) {
 }
 
 
-static Pointer_t Pointer_clear(Pointer_t Self) {
+Pointer_t Pointer_clear(Pointer_t Self) {
 	if(tb_valid(Self, TB_POINTER, __FUNCTION__)) {
 		pointer_members_t m = XPtr(Self);
 		if(m->userData && m->freeUserData) {
@@ -207,3 +218,11 @@ static Pointer_t Pointer_clear(Pointer_t Self) {
 
 
 
+Tlv_t tb_pointer_toTlv(Pointer_t Self) {
+	char dummy = 0x00;
+	return Tlv(TB_POINTER, 1, &dummy);
+}
+
+Pointer_t tb_pointer_fromTlv(Tlv_t T) {
+	return tb_Pointer(NULL,NULL);
+}

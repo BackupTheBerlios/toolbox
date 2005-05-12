@@ -1,0 +1,42 @@
+Author Paul L. Gatille <Paul.Gatille@free.fr>
+begin_licence
+/*
+ * Copyright (c) 2004, Paul Gatille
+ * This file is part of Toolbox, an object-oriented utility library
+ *
+ * This library is free software; you can redistribute it and/or modify it
+ * under the terms of the "Artistic License" which comes with this Kit.
+ *
+ * This software is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+ * or FITNESS FOR A PARTICULAR PURPOSE. See the Artistic License for more
+ * details.
+*/
+end_licence
+
+TbxBuiltin
+ClassName Container
+ClassPrefix Cnt_
+#ClassParent may be empty
+ClassParent tb_Object
+#Interface may also be empty or occurs more tha once
+
+begin_members
+#<name> <type may be composed of many words>
+#__PRIVATE_ size unsigned int
+end_members
+
+
+ClassMethod __TB_INSPECTOR_ tb_Object_t    tb_Get       (Container_t Self, char *search, int case_sensitive)
+ClassMethod __TB_INSPECTOR_ retcode_t      tb_Exists    (Container_t C, ...)
+ClassMethod __TB_INSPECTOR_ tb_Object_t    tb_Get       (Container_t C, ...)
+
+ClassMethod __TB_MUTATOR_   tb_Object_t    tb_Take      (Container_t C, ...)
+
+ClassMethod __TB_MUTATOR_  retcode_t       tb_Replace   (Container_t Cn, tb_Object_t O, ...)
+ClassMethod __TB_MUTATOR_  retcode_t       tb_Insert    (Container_t C, tb_Object_t O, ...)
+ClassMethod __TB_MUTATOR_  retcode_t       tb_Remove    (Container_t C, ...)
+
+ClassMethod __TB_FACTORY_  Iterator_t      tb_Find      (Container_t C, tb_Key_t K)
+
+

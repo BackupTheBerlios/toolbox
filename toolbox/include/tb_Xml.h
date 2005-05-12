@@ -1,5 +1,5 @@
 //------------------------------------------------------------------
-// $Id: tb_Xml.h,v 1.1 2004/05/12 22:04:49 plg Exp $
+// $Id: tb_Xml.h,v 1.2 2005/05/12 21:54:36 plg Exp $
 //------------------------------------------------------------------
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -26,7 +26,7 @@ struct xml_obj {
 	String_t        Name;
 	Hash_t          Attributes;
 	Vector_t        Children;
-	String_t        Text;         // valid only if ElmType = XELT_TYPE_TEXT
+	String_t        Text;         // valid only if ElmType = XELT_TYPE_TEXT || XELT_TYPE_CDATA
 	XmlElt_t        Parent;
 };
 typedef struct xml_obj *xml_obj_t;
@@ -37,6 +37,7 @@ struct xml_tree {
 	String_t   namespace;
 	XmlElt_t   root;
 	XmlElt_t   cur;
+	int        in_cdata;
 };
 typedef struct xml_tree *xml_tree_t;
 

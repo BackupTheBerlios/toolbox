@@ -1,5 +1,5 @@
 //======================================================
-// $Id: classRegistry.c,v 1.2 2004/05/14 15:22:38 plg Exp $
+// $Id: classRegistry.c,v 1.3 2005/05/12 21:51:51 plg Exp $
 //======================================================
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -81,7 +81,7 @@ pthread_once_t __class_registry_init_once = PTHREAD_ONCE_INIT;
 // Fixme: isDocked should be there !!
 // Fixme: isAliased should be there !!
 
-inline static int          __class_idOf          (char *name);
+
 inline static vtable_t     __class_methods_of    (int Cid);
 inline static vtable_t     __iface_methods_of    (int Cid, int Iid);
 inline static ifaceReg_t   __iface_of            (int Iid);
@@ -118,29 +118,29 @@ int tb_registerNewClass(char *name, int parent, void (*init)(int Cid)) {
 
 	if( __class_idOf(name) == -1) {
 		if( parent == -1 || (parent >-1 && parent < __classRegister->classes_nb)) {
-			classReg_t Cr = (classReg_t)tb_xcalloc(1, sizeof(struct classReg));
+			classReg_t Cr = (classReg_t)calloc(1, sizeof(struct classReg));
 			int i;
 			Cr->Cid = __classRegister->classes_nb;
-			Cr->name = tb_xstrdup(name); 
-			Cr->class_methods  = tb_xcalloc(1, sizeof(struct vtable));
-			Cr->ifaces_methods = tb_xcalloc(1, sizeof(struct ifaces));
+			Cr->name = strdup(name); 
+			Cr->class_methods  = calloc(1, sizeof(struct vtable));
+			Cr->ifaces_methods = calloc(1, sizeof(struct ifaces));
 			if( parent != -1) {
 				// class inherits parent's methods
 				Cr->class_methods->nb = __classRegister->Register[parent]->class_methods->nb;
-				Cr->class_methods->methods = tb_xcalloc(1, sizeof(void *)*Cr->class_methods->nb);
+				Cr->class_methods->methods = calloc(1, sizeof(void *)*Cr->class_methods->nb);
 				// class inherits parent's interfaces methods also !!!
 				Cr->ifaces_methods->nb = __classRegister->Register[parent]->ifaces_methods->nb;
 				if( Cr->ifaces_methods->nb >0) {
-					Cr->ifaces_methods->interfaces = tb_xcalloc(1, sizeof(iface_t)*Cr->ifaces_methods->nb);
+					Cr->ifaces_methods->interfaces = calloc(1, sizeof(iface_t)*Cr->ifaces_methods->nb);
 					for(i=0; i< Cr->ifaces_methods->nb; i++) {
-						Cr->ifaces_methods->interfaces[i] =  tb_xcalloc(1, sizeof(struct iface));
+						Cr->ifaces_methods->interfaces[i] =  calloc(1, sizeof(struct iface));
 						Cr->ifaces_methods->interfaces[i]->Iid = 
 							__classRegister->Register[parent]->ifaces_methods->interfaces[i]->Iid;
-						Cr->ifaces_methods->interfaces[i]->vtable = tb_xcalloc(1, sizeof(struct vtable));
+						Cr->ifaces_methods->interfaces[i]->vtable = calloc(1, sizeof(struct vtable));
 						Cr->ifaces_methods->interfaces[i]->vtable->nb = 
 							__classRegister->Register[parent]->ifaces_methods->interfaces[i]->vtable->nb;
 						Cr->ifaces_methods->interfaces[i]->vtable->methods = 
-							tb_xcalloc(1, sizeof(void *)*Cr->ifaces_methods->interfaces[i]->vtable->nb);
+							calloc(1, sizeof(void *)*Cr->ifaces_methods->interfaces[i]->vtable->nb);
 					}
 				}
 			}
@@ -149,7 +149,7 @@ int tb_registerNewClass(char *name, int parent, void (*init)(int Cid)) {
 			Cr->parent_Cid = parent;
 
 			__classRegister->classes_nb++;
-			__classRegister->Register = tb_xrealloc(__classRegister->Register, 
+			__classRegister->Register = realloc(__classRegister->Register, 
 																					 sizeof(classReg_t)* __classRegister->classes_nb);
 			__classRegister->Register[Cr->Cid] = Cr;
 
@@ -185,11 +185,11 @@ int tb_registerNewClass(char *name, int parent, void (*init)(int Cid)) {
 
 int tb_registerNewInterface(char *name) {
 	if(__interface_id_of(name) == -1) {
-		ifaceReg_t Ir = (ifaceReg_t)tb_xcalloc(1, sizeof(struct ifaceReg));
+		ifaceReg_t Ir = (ifaceReg_t)calloc(1, sizeof(struct ifaceReg));
 		Ir->Iid = __ifacesRegister->interfaces_nb;
-		Ir->name = tb_xstrdup(name); 
+		Ir->name = strdup(name); 
 		__ifacesRegister->interfaces_nb++;
-		__ifacesRegister->Register = tb_xrealloc(__ifacesRegister->Register, 
+		__ifacesRegister->Register = realloc(__ifacesRegister->Register, 
 																				 sizeof(ifaceReg_t)* __ifacesRegister->interfaces_nb);
 		__ifacesRegister->Register[Ir->Iid] = Ir;
 
@@ -222,17 +222,17 @@ int tb_registerNew_InterfaceMethod(char *name, int Iid) {
 	if( iR != NULL) {
 		if(__method_id_of(name) == -1) { // fixme: check if no interfacename::name exists
 			int last = __methodsRegister->methods_nb;
-			methodReg_t Mr = (methodReg_t)tb_xcalloc(1, sizeof(struct methodReg));
+			methodReg_t Mr = (methodReg_t)calloc(1, sizeof(struct methodReg));
 
 			Mr->Mid           = last;
 			Mr->Moffset       = iR->methods_nb++;
 
 			Mr->method_type   = MT_INTERFACE;
 			Mr->ownerId       = Iid;
-			Mr->name          = tb_xstrdup(name);
+			Mr->name          = strdup(name);
 			__methodsRegister->methods_nb++;
 			__methodsRegister->Register = 
-				tb_xrealloc(__methodsRegister->Register, 
+				realloc(__methodsRegister->Register, 
 								 sizeof(methodReg_t)*__methodsRegister->methods_nb); 
 			__methodsRegister->Register[last] = Mr;	
 
@@ -264,19 +264,19 @@ int tb_registerNew_InterfaceMethod(char *name, int Iid) {
 int tb_registerNew_ClassMethod(char *name, int Cid) {
 	if(__method_id_of(name) == -1) {
 		int last = __methodsRegister->methods_nb;
-		methodReg_t  Mr = (methodReg_t)tb_xcalloc(1, sizeof(struct methodReg));
+		methodReg_t  Mr = (methodReg_t)calloc(1, sizeof(struct methodReg));
 		vtable_t     vT = __class_methods_of(Cid);
 		Mr->Mid           = last;
 		Mr->Moffset       = vT->nb++;
 		// prepare storage
-		vT->methods = tb_xrealloc(vT->methods, sizeof(void *)*vT->nb);
+		vT->methods = realloc(vT->methods, sizeof(void *)*vT->nb);
 		// vT->methods[Mr->Moffset] = default_undefined_error;
 		Mr->method_type   = MT_CLASS;
 		Mr->ownerId       = Cid;
-		Mr->name          = tb_xstrdup(name);
+		Mr->name          = strdup(name);
 		__methodsRegister->methods_nb++;
 		__methodsRegister->Register = 
-			tb_xrealloc(__methodsRegister->Register, 
+			realloc(__methodsRegister->Register, 
 							 sizeof(methodReg_t)*__methodsRegister->methods_nb); 
 		__methodsRegister->Register[last] = Mr;	
 
@@ -383,12 +383,12 @@ void tb_implementsInterface(int Cid,
 			ifaces_t iFs = __classRegister->Register[Cid]->ifaces_methods;
 			iface_t  iF;
 			iFs->nb++;
-			iFs->interfaces = tb_xrealloc(iFs->interfaces, sizeof(iface_t)* iFs->nb);
-			iF = tb_xcalloc(1, sizeof(struct iface));
+			iFs->interfaces = realloc(iFs->interfaces, sizeof(iface_t)* iFs->nb);
+			iF = calloc(1, sizeof(struct iface));
 			iFs->interfaces[iFs->nb-1] = iF;
-			iF->vtable = tb_xcalloc(1, sizeof(struct vtable));
+			iF->vtable = calloc(1, sizeof(struct vtable));
 			iF->vtable->nb = __ifacesRegister->Register[Iid]->methods_nb;
-			iF->vtable->methods = tb_xcalloc(1, sizeof(void *)*iF->vtable->nb);
+			iF->vtable->methods = calloc(1, sizeof(void *)*iF->vtable->nb);
 			iF->Iid = Iid;
 			return;
 		} else {
@@ -404,9 +404,9 @@ void tb_implementsInterface(int Cid,
 
 
 void tb_classRegisterInit() {
-	__classRegister     = (classRegister_t)     tb_xcalloc(1, sizeof(struct classRegister));
-	__methodsRegister   = (methodsRegister_t)   tb_xcalloc(1, sizeof(struct methodsRegister));
-	__ifacesRegister    = (ifacesRegister_t)    tb_xcalloc(1, sizeof(struct ifacesRegister));
+	__classRegister     = (classRegister_t)     calloc(1, sizeof(struct classRegister));
+	__methodsRegister   = (methodsRegister_t)   calloc(1, sizeof(struct methodsRegister));
+	__ifacesRegister    = (ifacesRegister_t)    calloc(1, sizeof(struct ifacesRegister));
 
 	// setup basic key types for keyed containers
 	register_basic_ktypes_once();
@@ -434,6 +434,8 @@ void tb_classRegisterInit() {
 	tb_registerNewClass("TB_ITERATOR",  TB_COMPOSITE,  __build_iterator_once);
 	tb_registerNewClass("TB_XMLDOC",    TB_COMPOSITE,  __build_xmldoc_once);
 	tb_registerNewClass("TB_XMLELT",    TB_COMPOSITE,  __build_xmlelt_once);
+
+	tb_registerNewClass("TB_BOOL",      TB_SCALAR,     __build_bool_once);
 }
 
 
@@ -501,7 +503,7 @@ inline const char * __method_name_of(int Mid) {
 }
 
 
-inline static int __class_idOf(char *name) {
+inline int __class_idOf(char *name) {
 	int i;
 	for(i=0; i<__classRegister->classes_nb; i++) {
 		if(strcmp(name, __classRegister->Register[i]->name) == 0) return i;

@@ -1,4 +1,4 @@
-// $Id: marshall.c,v 1.4 2004/05/24 16:37:53 plg Exp $
+// $Id: marshall.c,v 1.5 2005/05/12 21:52:40 plg Exp $
 
 #include <string.h>
 #include <unistd.h>
@@ -8,7 +8,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include "Toolbox.h"
-
+#include "Tlv.h"
 
 int string_test(void);
 int raw_test(void);
@@ -17,8 +17,15 @@ int vector_test(void);
 int hash_test(void);
 int mixed_test(void);
 
+int crash_hash();
 
 int main(int argc, char **argv) {
+
+
+	tb_profile("hash crash test");
+	crash_hash();
+	
+	//	return 0;
 
 	tb_profile("string_test");
 	string_test();
@@ -41,6 +48,23 @@ int main(int argc, char **argv) {
 	return 0;
 }
 
+
+int crash_hash() {
+	Hash_t H = tb_Hash();
+
+	tb_Insert(H, tb_String("1"), "Login");
+	tb_Insert(H, tb_String("1"), "Password");
+
+	tb_Insert(H, tb_String("1"), "LocalIP");
+	tb_Insert(H, tb_String("1"), "RemoteIP");
+	tb_Insert(H, tb_String("1"), "Netmask");
+
+	tb_Insert(H, tb_String("1"), "Add");
+	tb_Insert(H, tb_String("1"), "Action");
+
+	tb_Remove(H, "Action");
+
+}
 
 int string_test() {
 	String_t U, M,  S = tb_String("hello string");
@@ -114,9 +138,9 @@ int vector_test() {
 }
 
 int hash_test() {
-	Hash_t U,  H = tb_Hash();
+	Hash_t V, U,  H = tb_Hash();
 	String_t M;
-
+	Tlv_t T;
 	tb_Insert(H, tb_String("1"), "un");
 	tb_Insert(H, tb_String("2"), "deux");
 	tb_Insert(H, tb_String("3"), "trois");
@@ -130,6 +154,13 @@ int hash_test() {
 	U = tb_unMarshall( M );
 
 	tb_Dump(U);
+
+	T = tb_toTlv(U);
+	tb_hexdump(T, Tlv_getFullLen(T));
+	V = tb_fromTlv(T);
+	tb_Dump(V);
+	
+
 
 	return TB_OK;
 }

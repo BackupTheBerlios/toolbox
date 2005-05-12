@@ -1,13 +1,852 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<DOC_SPG VERSION="1.0" SID="335">
-<SM_POPUP SMID="8781" NOTIF="10" MSISDN="0680647911">
-<DISPLAYTEXT xml:space="preserve">é Quoi? Je l&apos;ai depuis au
-moins 3 ans! Vous:</DISPLAYTEXT>
-<SELECTITEM TITLE="Actions" USEITEM="yes">
-<ITEM TEXT="et alors?"/>
-<ITEM TEXT="Désolé"/>
-</SELECTITEM>
-<SENDSM/>
-</SM_POPUP>
-</DOC_SPG>
-
+<?xml version="1.0"?>
+<methodCall>
+  <methodName>config.setConfigValues</methodName>
+  <params xml:space="nopreserve">
+    <param><value><string><![CDATA[bibi]]>toto<![CDATA[<SubTree Name="sys" >
+  <Attribute Name="configRevision">
+      <string>$Revision: 1.2 $</string>
+  </Attribute>
+  <Attribute Name="SystemName">
+      <string>IP2Choice V2</string>
+  </Attribute>
+  <Attribute Name="SystemDescription">
+      <string>Monitoring remote control service</string>
+  </Attribute>
+  <Attribute Name="VersionSoftware">
+      <string>1.3.5</string>
+  </Attribute>
+  <Attribute Name="VersionHardware">
+      <string>1.0</string>
+  </Attribute>
+  <Attribute Name="SerialNumber">
+      <string>00031</string>
+  </Attribute>
+  <Branches>
+    <SubTree Name="sys.watchdog" >
+      <Branches>
+        <SubTree Name="sys.watchdog.software" >
+          <Attribute Name="TimeoutRestart">
+              <int>60</int>
+          </Attribute>
+        </SubTree>
+        <SubTree Name="sys.watchdog.hardware" >
+          <Attribute Name="TimeoutReboot">
+              <int>300</int>
+          </Attribute>
+        </SubTree>
+      </Branches>
+    </SubTree>
+    <SubTree Name="sys.io" >
+      <Branches>
+        <SubTree Name="sys.io.slots" >
+          <Attribute Name="MBVersion">
+              <string>1164 Audemat Aztec   build: 002</string>
+          </Attribute>
+          <Attribute Name="RemapUserIo">
+              <int>0</int>
+          </Attribute>
+        </SubTree>
+        <SubTree Name="sys.io.serial" >
+          <Attribute Name="ComPortNumber">
+              <int>2</int>
+          </Attribute>
+          <Attribute Name="Native">
+            <RecordSet>
+              <Record>
+                <Member Name="Label">
+                  <string>COM0</string>
+                </Member>
+                <Index Name="ComPort">
+                  <int>0</int>
+                </Index>
+                <Member Name="DeviceName">
+                  <string>ttyS1</string>
+                </Member>
+                <Member Name="TunnelPort">
+                  <int>7400</int>
+                </Member>
+                <Member Name="Binding">
+                  <string>Console</string>
+                </Member>
+              </Record>
+              <Record>
+                <Member Name="Label">
+                  <string>COM1</string>
+                </Member>
+                <Index Name="ComPort">
+                  <int>1</int>
+                </Index>
+                <Member Name="DeviceName">
+                  <string>ttyS0</string>
+                </Member>
+                <Member Name="TunnelPort">
+                  <int>7401</int>
+                </Member>
+                <Member Name="Binding">
+                  <string>Unset</string>
+                </Member>
+              </Record>
+            </RecordSet>
+          </Attribute>
+          <Attribute Name="UsbSerialPortNumber">
+              <int>0</int>
+          </Attribute>
+        </SubTree>
+        <SubTree Name="sys.io.rel" >
+          <Attribute Name="ResetAll">
+              <int>0</int>
+          </Attribute>
+        </SubTree>
+      </Branches>
+    </SubTree>
+    <SubTree Name="sys.applications" >
+      <Attribute Name="SnmpIoBridgeEnable">
+          <string>Yes</string>
+      </Attribute>
+      <Branches>
+        <SubTree Name="sys.applications.scripteasy" >
+          <Attribute Name="Status">
+              <string>Stopped</string>
+          </Attribute>
+          <Attribute Name="scriptId">
+              <string>?</string>
+          </Attribute>
+          <Attribute Name="config">
+            <Record>
+              <Member Name="readwritePort">
+                <int>5470</int>
+              </Member>
+              <Member Name="readonlyPort">
+                <int>5471</int>
+              </Member>
+              <Member Name="maxUsers">
+                <int>5</int>
+              </Member>
+              <Member Name="currentUsers">
+                <int>0</int>
+              </Member>
+              <Member Name="semaphore">
+                <string>/ram/run/sem_scripteasy</string>
+              </Member>
+              <Member Name="semNumber">
+                <int>2</int>
+              </Member>
+              <Member Name="in">
+                <string>/ram/se/in.txt</string>
+              </Member>
+              <Member Name="ana">
+                <string>/ram/se/ana.txt</string>
+              </Member>
+              <Member Name="out">
+                <string>/ram/se/out.txt</string>
+              </Member>
+              <Member Name="trap">
+                <string>/ram/se/trap.txt</string>
+              </Member>
+              <Member Name="alm">
+                <string>/ram/se/alm.txt</string>
+              </Member>
+              <Member Name="timers">
+                <string>/ram/se/timers.txt</string>
+              </Member>
+              <Member Name="timersBak">
+                <string>/var/gt/se/timers.txt</string>
+              </Member>
+              <Member Name="trapsBak">
+                <string>/var/gt/se/traps.bak</string>
+              </Member>
+              <Member Name="act">
+                <string>/ram/se/act.txt</string>
+              </Member>
+              <Member Name="actBak">
+                <string>/var/gt/se/act.txt</string>
+              </Member>
+              <Member Name="port">
+                <int>9871</int>
+              </Member>
+              <Member Name="watchdogTimer">
+                <int>15</int>
+              </Member>
+              <Member Name="SlaveMode">
+                <string>No</string>
+              </Member>
+            </Record>
+          </Attribute>
+        </SubTree>
+      </Branches>
+    </SubTree>
+    <SubTree Name="sys.alarm" >
+      <Attribute Name="SnmpAction">
+        <Record>
+          <Member Name="TrapReplay">
+            <int>0</int>
+          </Member>
+          <Member Name="TrapResetSequence">
+            <int>0</int>
+          </Member>
+        </Record>
+      </Attribute>
+      <Branches>
+        <SubTree Name="sys.alarm.configuration" >
+          <Attribute Name="Snmp">
+            <Record>
+              <Member Name="CommunitySet">
+                <string>private</string>
+              </Member>
+              <Member Name="CommunityGet">
+                <string>public</string>
+              </Member>
+              <Member Name="ManagerAddress1">
+                <IpAddr_t>192.168.0.1</IpAddr_t>
+              </Member>
+              <Member Name="ManagerAddress2">
+                <IpAddr_t>0.0.0.0</IpAddr_t>
+              </Member>
+              <Member Name="ManagerAddress3">
+                <IpAddr_t>0.0.0.0</IpAddr_t>
+              </Member>
+              <Member Name="ManagerAddress4">
+                <IpAddr_t>0.0.0.0</IpAddr_t>
+              </Member>
+              <Member Name="TrapCommunity">
+                <string>public</string>
+              </Member>
+              <Member Name="TrapSysDescription">
+                <string>Audemat-Aztec's Ip2Choice V2</string>
+              </Member>
+              <Member Name="TrapVersion">
+                <int>6</int>
+              </Member>
+              <Member Name="LifeSignTrap">
+                <string>On</string>
+              </Member>
+              <Member Name="LifeSignDelay">
+                <int>10</int>
+              </Member>
+              <Member Name="TrapSequenceCounter">
+                <int>168</int>
+              </Member>
+              <Member Name="LocalAgentPort">
+                <int>161</int>
+              </Member>
+              <Member Name="RemoteManagerPort">
+                <int>162</int>
+              </Member>
+            </Record>
+          </Attribute>
+          <Attribute Name="email">
+            <Record>
+              <Member Name="emailAddr">
+                <string>rcma@audemat-aztec.com</string>
+              </Member>
+              <Member Name="emailAddrCC1">
+                <string>rcma2@audemat-aztec.com</string>
+              </Member>
+              <Member Name="emailAddrCC2">
+                <string/>
+              </Member>
+            </Record>
+          </Attribute>
+          <Attribute Name="alarmType">
+            <RecordSet>
+              <Record>
+                <Member Name="eventTrapNumber">
+                  <int>3</int>
+                </Member>
+                <Member Name="eventTrapCycle">
+                  <int>30</int>
+                </Member>
+                <Index Name="eventId">
+                  <int>1</int>
+                </Index>
+                <Member Name="nombre">
+                  <int>1</int>
+                </Member>
+                <Member Name="eventProcess">
+                  <int>2</int>
+                </Member>
+                <Member Name="eventMode">
+                  <int>1</int>
+                </Member>
+                <Member Name="eventDescription">
+                  <string>Equipment ON</string>
+                </Member>
+              </Record>
+              <Record>
+                <Member Name="eventTrapNumber">
+                  <int>0</int>
+                </Member>
+                <Member Name="eventTrapCycle">
+                  <int>30</int>
+                </Member>
+                <Index Name="eventId">
+                  <int>4</int>
+                </Index>
+                <Member Name="nombre">
+                  <int>1</int>
+                </Member>
+                <Member Name="eventProcess">
+                  <int>2</int>
+                </Member>
+                <Member Name="eventMode">
+                  <int>1</int>
+                </Member>
+                <Member Name="eventDescription">
+                  <string>Equipment log full</string>
+                </Member>
+              </Record>
+              <Record>
+                <Member Name="eventTrapNumber">
+                  <int>3</int>
+                </Member>
+                <Member Name="eventTrapCycle">
+                  <int>30</int>
+                </Member>
+                <Index Name="eventId">
+                  <int>8</int>
+                </Index>
+                <Member Name="nombre">
+                  <int>1</int>
+                </Member>
+                <Member Name="eventProcess">
+                  <int>2</int>
+                </Member>
+                <Member Name="eventMode">
+                  <int>1</int>
+                </Member>
+                <Member Name="eventDescription">
+                  <string>Heartbeat</string>
+                </Member>
+              </Record>
+              <Record>
+                <Member Name="eventTrapNumber">
+                  <int>3</int>
+                </Member>
+                <Member Name="eventTrapCycle">
+                  <int>30</int>
+                </Member>
+                <Index Name="eventId">
+                  <int>9</int>
+                </Index>
+                <Member Name="nombre">
+                  <int>1</int>
+                </Member>
+                <Member Name="eventProcess">
+                  <int>2</int>
+                </Member>
+                <Member Name="eventMode">
+                  <int>1</int>
+                </Member>
+                <Member Name="eventDescription">
+                  <string>Equipment configuration evolution</string>
+                </Member>
+              </Record>
+              <Record>
+                <Member Name="eventTrapNumber">
+                  <int>0</int>
+                </Member>
+                <Member Name="eventTrapCycle">
+                  <int>30</int>
+                </Member>
+                <Index Name="eventId">
+                  <int>10</int>
+                </Index>
+                <Member Name="nombre">
+                  <int>1</int>
+                </Member>
+                <Member Name="eventProcess">
+                  <int>2</int>
+                </Member>
+                <Member Name="eventMode">
+                  <int>1</int>
+                </Member>
+                <Member Name="eventDescription">
+                  <string>Equipment Fault</string>
+                </Member>
+              </Record>
+              <Record>
+                <Member Name="eventTrapNumber">
+                  <int>1</int>
+                </Member>
+                <Member Name="eventTrapCycle">
+                  <int>30</int>
+                </Member>
+                <Index Name="eventId">
+                  <int>10000</int>
+                </Index>
+                <Member Name="nombre">
+                  <int>500</int>
+                </Member>
+                <Member Name="eventProcess">
+                  <int>2</int>
+                </Member>
+                <Member Name="eventMode">
+                  <int>1</int>
+                </Member>
+                <Member Name="eventDescription">
+                  <string>ScriptEasy Alarm (info)</string>
+                </Member>
+              </Record>
+              <Record>
+                <Member Name="eventTrapNumber">
+                  <int>1</int>
+                </Member>
+                <Member Name="eventTrapCycle">
+                  <int>30</int>
+                </Member>
+                <Index Name="eventId">
+                  <int>10001</int>
+                </Index>
+                <Member Name="nombre">
+                  <int>500</int>
+                </Member>
+                <Member Name="eventProcess">
+                  <int>2</int>
+                </Member>
+                <Member Name="eventMode">
+                  <int>2</int>
+                </Member>
+                <Member Name="eventDescription">
+                  <string>ScriptEasy Alarm (On/Off)</string>
+                </Member>
+              </Record>
+              <Record>
+                <Member Name="eventTrapNumber">
+                  <int>1</int>
+                </Member>
+                <Member Name="eventTrapCycle">
+                  <int>30</int>
+                </Member>
+                <Index Name="eventId">
+                  <int>20000</int>
+                </Index>
+                <Member Name="nombre">
+                  <int>128</int>
+                </Member>
+                <Member Name="eventProcess">
+                  <int>2</int>
+                </Member>
+                <Member Name="eventMode">
+                  <int>2</int>
+                </Member>
+                <Member Name="eventDescription">
+                  <string>Snmp-IO Bridge : Digital Input Changed</string>
+                </Member>
+              </Record>
+              <Record>
+                <Member Name="eventTrapNumber">
+                  <int>1</int>
+                </Member>
+                <Member Name="eventTrapCycle">
+                  <int>30</int>
+                </Member>
+                <Index Name="eventId">
+                  <int>20001</int>
+                </Index>
+                <Member Name="nombre">
+                  <int>64</int>
+                </Member>
+                <Member Name="eventProcess">
+                  <int>2</int>
+                </Member>
+                <Member Name="eventMode">
+                  <int>2</int>
+                </Member>
+                <Member Name="eventDescription">
+                  <string>Snmp-IO Bridge : Digital Output Changed</string>
+                </Member>
+              </Record>
+            </RecordSet>
+          </Attribute>
+        </SubTree>
+      </Branches>
+    </SubTree>
+    <SubTree Name="sys.os" >
+      <Attribute Name="Date">
+          <string>2004/01/01</string>
+      </Attribute>
+      <Attribute Name="Time">
+          <string>15:20:59</string>
+      </Attribute>
+      <Attribute Name="TimeZone">
+          <string>GMT+2</string>
+      </Attribute>
+      <Branches>
+        <SubTree Name="sys.os.update" >
+          <Attribute Name="PatchFile">
+              <string/>
+          </Attribute>
+        </SubTree>
+        <SubTree Name="sys.os.eventLog" >
+          <Attribute Name="MaxRecords">
+              <int>500000</int>
+          </Attribute>
+          <Attribute Name="MaxAge">
+              <int>30</int>
+          </Attribute>
+        </SubTree>
+      </Branches>
+    </SubTree>
+    <SubTree Name="sys.net" >
+      <Branches>
+        <SubTree Name="sys.net.ip" >
+          <Branches>
+            <SubTree Name="sys.net.ip.interfaces" >
+              <Branches>
+                <SubTree Name="sys.net.ip.interfaces.eth0" >
+                  <Attribute Name="ConfigMethod">
+                      <string>Static</string>
+                  </Attribute>
+                  <Attribute Name="MacAddress">
+                      <string>00:40:63:DA:3D:09</string>
+                  </Attribute>
+                  <Attribute Name="StaticConfig">
+                    <Record>
+                      <Member Name="Address">
+                        <IpAddr_t>192.168.0.49</IpAddr_t>
+                      </Member>
+                      <Member Name="Gateway">
+                        <IpAddr_t>192.168.0.254</IpAddr_t>
+                      </Member>
+                      <Member Name="Netmask">
+                        <IpAddr_t>255.255.255.0</IpAddr_t>
+                      </Member>
+                      <Member Name="Broadcast">
+                        <IpAddr_t>192.168.0.255</IpAddr_t>
+                      </Member>
+                    </Record>
+                  </Attribute>
+                  <Attribute Name="Current">
+                    <Record>
+                      <Member Name="Status">
+                        <string>Running</string>
+                      </Member>
+                      <Member Name="Address">
+                        <IpAddr_t>192.168.0.49</IpAddr_t>
+                      </Member>
+                      <Member Name="Gateway">
+                        <IpAddr_t>192.168.0.254</IpAddr_t>
+                      </Member>
+                      <Member Name="Netmask">
+                        <IpAddr_t>255.255.255.0</IpAddr_t>
+                      </Member>
+                      <Member Name="Broadcast">
+                        <IpAddr_t>192.168.0.255</IpAddr_t>
+                      </Member>
+                    </Record>
+                  </Attribute>
+                </SubTree>
+                <SubTree Name="sys.net.ip.interfaces.eth1" >
+                  <Attribute Name="MacAddress">
+                      <string>00:00:00:00:00:00:00:00</string>
+                  </Attribute>
+                  <Attribute Name="ConfigMethod">
+                      <string>Inactive</string>
+                  </Attribute>
+                  <Attribute Name="StaticConfig">
+                    <Record>
+                      <Member Name="Address">
+                        <IpAddr_t>192.168.0.1</IpAddr_t>
+                      </Member>
+                      <Member Name="Gateway">
+                        <IpAddr_t>192.168.0.254</IpAddr_t>
+                      </Member>
+                      <Member Name="Netmask">
+                        <IpAddr_t>255.255.255.0</IpAddr_t>
+                      </Member>
+                      <Member Name="Broadcast">
+                        <IpAddr_t>192.168.0.255</IpAddr_t>
+                      </Member>
+                    </Record>
+                  </Attribute>
+                  <Attribute Name="Current">
+                    <Record>
+                      <Member Name="Status">
+                        <string>Not running</string>
+                      </Member>
+                      <Member Name="Address">
+                        <IpAddr_t>192.168.0.1</IpAddr_t>
+                      </Member>
+                      <Member Name="Gateway">
+                        <IpAddr_t>192.168.0.254</IpAddr_t>
+                      </Member>
+                      <Member Name="Netmask">
+                        <IpAddr_t>255.255.255.0</IpAddr_t>
+                      </Member>
+                      <Member Name="Broadcast">
+                        <IpAddr_t>192.168.0.255</IpAddr_t>
+                      </Member>
+                    </Record>
+                  </Attribute>
+                </SubTree>
+                <SubTree Name="sys.net.ip.interfaces.pppC" >
+                  <Attribute Name="Current">
+                    <Record>
+                      <Member Name="Status">
+                        <string>Disabled</string>
+                      </Member>
+                      <Member Name="Address">
+                        <IpAddr_t>0.0.0.0</IpAddr_t>
+                      </Member>
+                      <Member Name="Gateway">
+                        <IpAddr_t>0.0.0.0</IpAddr_t>
+                      </Member>
+                      <Member Name="Netmask">
+                        <IpAddr_t>0.0.0.0</IpAddr_t>
+                      </Member>
+                      <Member Name="Broadcast">
+                        <IpAddr_t>0.0.0.0</IpAddr_t>
+                      </Member>
+                      <Member Name="Interface">
+                        <string/>
+                      </Member>
+                    </Record>
+                  </Attribute>
+                </SubTree>
+                <SubTree Name="sys.net.ip.interfaces.pppS" >
+                  <Attribute Name="Current">
+                    <Record>
+                      <Member Name="Status">
+                        <string>Disabled</string>
+                      </Member>
+                      <Member Name="Address">
+                        <IpAddr_t>0.0.0.0</IpAddr_t>
+                      </Member>
+                      <Member Name="Gateway">
+                        <IpAddr_t>0.0.0.0</IpAddr_t>
+                      </Member>
+                      <Member Name="Netmask">
+                        <IpAddr_t>0.0.0.0</IpAddr_t>
+                      </Member>
+                      <Member Name="Broadcast">
+                        <IpAddr_t>0.0.0.0</IpAddr_t>
+                      </Member>
+                      <Member Name="Interface">
+                        <string/>
+                      </Member>
+                    </Record>
+                  </Attribute>
+                </SubTree>
+              </Branches>
+            </SubTree>
+          </Branches>
+        </SubTree>
+        <SubTree Name="sys.net.services" >
+          <Branches>
+            <SubTree Name="sys.net.services.clients" >
+              <Branches>
+                <SubTree Name="sys.net.services.clients.dns" >
+                  <Attribute Name="PrimaryDNS">
+                      <IpAddr_t>192.168.0.99</IpAddr_t>
+                  </Attribute>
+                  <Attribute Name="SecondaryDNS">
+                      <IpAddr_t>0.0.0.0</IpAddr_t>
+                  </Attribute>
+                </SubTree>
+                <SubTree Name="sys.net.services.clients.ntp" >
+                  <Attribute Name="Enable">
+                      <string>No</string>
+                  </Attribute>
+                  <Attribute Name="ServerAddress">
+                      <IpAddr_t>207.46.130.100</IpAddr_t>
+                  </Attribute>
+                </SubTree>
+                <SubTree Name="sys.net.services.clients.ppp" >
+                  <Attribute Name="enableDialOut">
+                      <string>No</string>
+                  </Attribute>
+                  <Attribute Name="QuotaStatus">
+                      <string>Allowed</string>
+                  </Attribute>
+                  <Attribute Name="MaxCallsPerDay">
+                      <int>0</int>
+                  </Attribute>
+                  <Attribute Name="MaxCallsPerHour">
+                      <int>0</int>
+                  </Attribute>
+                  <Attribute Name="DayCallsNumber">
+                      <int>0</int>
+                  </Attribute>
+                  <Attribute Name="HourCallsNumber">
+                      <int>0</int>
+                  </Attribute>
+                </SubTree>
+                <SubTree Name="sys.net.services.clients.smtp" >
+                  <Attribute Name="ServerAddress">
+                      <string>smtp.address.com</string>
+                  </Attribute>
+                  <Attribute Name="ReturnAddress">
+                      <string>me@address.com</string>
+                  </Attribute>
+                  <Attribute Name="Authenticate">
+                      <int>0</int>
+                  </Attribute>
+                  <Attribute Name="Login">
+                      <string>user</string>
+                  </Attribute>
+                  <Attribute Name="Password">
+                      <string>password</string>
+                  </Attribute>
+                  <Attribute Name="SpoolingInterval">
+                      <int>5</int>
+                  </Attribute>
+                </SubTree>
+              </Branches>
+            </SubTree>
+            <SubTree Name="sys.net.services.servers" >
+              <Branches>
+                <SubTree Name="sys.net.services.servers.httpd" >
+                  <Attribute Name="users">
+                    <RecordSet>
+                      <Record>
+                        <Member Name="login">
+                          <string>Admin</string>
+                        </Member>
+                        <Index Name="WebUserID">
+                          <int>1</int>
+                        </Index>
+                        <Member Name="Name">
+                          <string>Administrator</string>
+                        </Member>
+                        <Member Name="password">
+                          <string>admin</string>
+                        </Member>
+                      </Record>
+                      <Record>
+                        <Member Name="login">
+                          <string>guest</string>
+                        </Member>
+                        <Index Name="WebUserID">
+                          <int>2</int>
+                        </Index>
+                        <Member Name="Name">
+                          <string>Guest</string>
+                        </Member>
+                        <Member Name="password">
+                          <string>user</string>
+                        </Member>
+                      </Record>
+                    </RecordSet>
+                  </Attribute>
+                </SubTree>
+                <SubTree Name="sys.net.services.servers.ftpd" >
+                  <Attribute Name="users">
+                    <RecordSet>
+                      <Record>
+                        <Index Name="FtpUserID">
+                          <int>6003</int>
+                        </Index>
+                        <Member Name="login">
+                          <string>seasy</string>
+                        </Member>
+                        <Member Name="rootDir">
+                          <string>/var/gt/se/.</string>
+                        </Member>
+                        <Member Name="Name">
+                          <string>ScriptEasy</string>
+                        </Member>
+                        <Member Name="password">
+                          <string>easy</string>
+                        </Member>
+                      </Record>
+                      <Record>
+                        <Index Name="FtpUserID">
+                          <int>6004</int>
+                        </Index>
+                        <Member Name="login">
+                          <string>web</string>
+                        </Member>
+                        <Member Name="rootDir">
+                          <string>/var/gt/www/.</string>
+                        </Member>
+                        <Member Name="Name">
+                          <string>Webmaster</string>
+                        </Member>
+                        <Member Name="password">
+                          <string>html</string>
+                        </Member>
+                      </Record>
+                      <Record>
+                        <Index Name="FtpUserID">
+                          <int>6005</int>
+                        </Index>
+                        <Member Name="login">
+                          <string>Admin</string>
+                        </Member>
+                        <Member Name="rootDir">
+                          <string>/var/gt/.</string>
+                        </Member>
+                        <Member Name="Name">
+                          <string>Administrator</string>
+                        </Member>
+                        <Member Name="password">
+                          <string>admin</string>
+                        </Member>
+                      </Record>
+                      <Record>
+                        <Index Name="FtpUserID">
+                          <int>6006</int>
+                        </Index>
+                        <Member Name="login">
+                          <string>update</string>
+                        </Member>
+                        <Member Name="rootDir">
+                          <string>/var/gt/ftp/update/.</string>
+                        </Member>
+                        <Member Name="Name">
+                          <string>Update manager</string>
+                        </Member>
+                        <Member Name="password">
+                          <string>maj</string>
+                        </Member>
+                      </Record>
+                    </RecordSet>
+                  </Attribute>
+                </SubTree>
+                <SubTree Name="sys.net.services.servers.pppd" >
+                  <Attribute Name="enableDialIn">
+                      <string>No</string>
+                  </Attribute>
+                  <Attribute Name="Login">
+                      <string>user</string>
+                  </Attribute>
+                  <Attribute Name="Password">
+                      <string>pass</string>
+                  </Attribute>
+                  <Attribute Name="AuthentType">
+                      <string>Pap</string>
+                  </Attribute>
+                  <Attribute Name="LocalIP">
+                      <IpAddr_t>10.10.10.1</IpAddr_t>
+                  </Attribute>
+                  <Attribute Name="RemoteIP">
+                      <IpAddr_t>10.10.10.2</IpAddr_t>
+                  </Attribute>
+                  <Attribute Name="Netmask">
+                      <IpAddr_t>255.255.255.0</IpAddr_t>
+                  </Attribute>
+                  <Attribute Name="IdleTimeout">
+                      <int>60</int>
+                  </Attribute>
+                  <Attribute Name="ModemDevice">
+                      <string>None</string>
+                  </Attribute>
+                  <Attribute Name="ModemSpeed">
+                      <int>38400</int>
+                  </Attribute>
+                  <Attribute Name="UseWhiteList">
+                      <string>No</string>
+                  </Attribute>
+                </SubTree>
+              </Branches>
+            </SubTree>
+          </Branches>
+        </SubTree>
+      </Branches>
+    </SubTree>
+  </Branches>
+</SubTree>
+]]></string>
+</value></param>
+  </params>
+</methodCall>

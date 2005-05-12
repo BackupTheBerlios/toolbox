@@ -1,5 +1,5 @@
 //======================================================
-// $Id: XmlDoc.c,v 1.3 2004/07/01 21:46:05 plg Exp $
+// $Id: XmlDoc.c,v 1.4 2005/05/12 21:53:10 plg Exp $
 //======================================================
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -52,7 +52,8 @@ inline xml_obj_t XElt(XmlElt_t X) {
 static void startElement  (void *userData, const char *name, const char **atts);
 static void endElement    (void *userData, const char *name);
 static void charElement   (void *userData, const char *string, int len);
-
+static void endCData      (void *userData);
+static void startCData    (void *userData);
 
 void __build_xmldoc_once(int OID) {
 	tb_registerMethod(OID, OM_NEW,          tb_XmlDoc);
@@ -114,8 +115,8 @@ XmlDoc_t tb_XmlDoc(char *xmltext) {
 		XML_SetElementHandler(tree->parser, startElement, endElement);
 		XML_SetCharacterDataHandler(tree->parser, charElement);
 
-		/* NYI
 			 XML_SetCdataSectionHandler(tree->parser, startCData, endCData);
+		/*
 			 XML_SetProcessingInstructionHandler(tree->parser, pi_handler);
 			 XML_SetCommentHandler(tree->parser, comment_handler);
 		*/
@@ -203,11 +204,21 @@ String_t XDOC_to_xml(XmlDoc_t Doc) {
 }
 
 
+inline int need_convert(char *s) {
+	int convert = 0;
+	while(*(s++)) { 
+		if(! isascii(*s)) {
+			convert = 1;
+			break ;
+		}
+	}
+	return convert;
+}
+
 
 static void startElement(void *userData, const char *name, const char **atts) {
 	XmlDoc_t         Doc          = (XmlDoc_t) userData;
-	char          ** latin_attr   = NULL;
-	Vector_t         Attr         = tb_Vector();	
+	Hash_t           Attr = tb_Hash();
 	XmlElt_t         X;
 	xml_tree_t       members = (xml_tree_t)Doc->members->instance;
 
@@ -217,19 +228,15 @@ static void startElement(void *userData, const char *name, const char **atts) {
 		while(*atts ) {
 			K = tb_String("%s", (char *)*atts++);
 			V = tb_String("%s", (char *)*atts++);
-			tb_UTF8_to_Latin1(K);
-			tb_UTF8_to_Latin1(V);
 			
-			tb_Push(Attr, K);
-			tb_Push(Attr, V);
+			if(need_convert(tb_toStr(K))) tb_UTF8_to_Latin1(K);
+			if(need_convert(tb_toStr(V))) tb_UTF8_to_Latin1(V);
+
+			tb_Insert(Attr, V, tb_toStr(K));
+			tb_Free(K);
 		}
 	} 
-	latin_attr = tb_toArgv(Attr);
-
-	X = tb_XmlElt(XELT_TYPE_NODE, members->cur, (char *)name, (char **)latin_attr);
-	tb_freeArgv(latin_attr);
-	tb_Free(Attr);
-	
+	X = tb_XmlElt(XELT_TYPE_NODE, members->cur, (char *)name, Attr);
 
 	if(members->cur != NULL) {
 		tb_Push(XXELT(members->cur)->Children, X);
@@ -239,29 +246,85 @@ static void startElement(void *userData, const char *name, const char **atts) {
 	members->cur = X;
 }
 
+
+static void startCData(void *userData) {
+	XmlDoc_t         Doc          = (XmlDoc_t) userData;
+	xml_tree_t       m  = (xml_tree_t)Doc->members->instance;
+	m->in_cdata = 1;
+}
+
+static void endCData(void *userData) {
+	XmlDoc_t         Doc          = (XmlDoc_t) userData;
+	xml_tree_t       m  = (xml_tree_t)Doc->members->instance;
+	m->in_cdata = 0;
+}
+
 static void endElement(void *userData, const char *name) {
 	XmlDoc_t Doc = (XmlDoc_t) userData;
 	xml_tree_t       members = (xml_tree_t)Doc->members->instance;
 	members->cur = XXELT(XXDOC(Doc)->cur)->Parent;
 }
 
+enum trimstates {lead,inside,trail};
+
+String_t spacetrim(char *s) {
+	int state = lead;
+	char *start = s;
+	char *end   = s;
+	//	int flen = 0;
+	do {
+		if(isspace(*s)) {
+			switch(state) 
+				{
+				case inside: 
+					state = trail; 
+					break;
+				}
+		} else {
+			switch(state) 
+				{
+				case lead:
+					state = inside;
+					start = s;
+					break;
+				case trail:
+					state = inside;
+				}
+			end = s;
+		}
+		//		flen++;
+	} while(*s++);
+	int len = (unsigned int)end - (unsigned int)start;
+	if(len >0) {
+		String_t S = tb_String(NULL);
+		return tb_RawAdd(S, len, 0, start);
+	}
+	return NULL;
+}
+
+
+
+
 static void charElement(void *userData, const char *string, int len) {
 	if(len >0) {
 		XmlDoc_t Doc = (XmlDoc_t) userData;
 		XmlElt_t X;
-		String_t S = tb_nString(len+1, "%s", string);
+		String_t S = tb_String(NULL);
+		xml_tree_t m = (xml_tree_t)Doc->members->instance;
 		
-		tb_UTF8_to_Latin1(S);
 		
-		if(XXELT(XXDOC(Doc)->cur)->xml_space == 0) {
-			int i, text=0;
-			for (i = 0; i<len; i++) {
-				if(! isspace(S2sz(S)[i])) {
-					text = 1;
-					break;
-				}
-			}
-			if(text == 0) { //				tb_warn("only spaces, skipped\n");
+		tb_RawAdd(S, len, -1, (char *)string);
+
+#warning: may be not a great idea (forbids use of non latin1 charsets)
+		if(need_convert(tb_toStr(S))) tb_UTF8_to_Latin1(S);
+		
+		if(XXELT(XXDOC(Doc)->cur)->xml_space == 0) { // squizz spaces
+
+			String_t tmp = spacetrim(tb_toStr(S));
+			if(tmp) {
+				tb_Free(S);
+				S = tmp;
+			} else {
 				tb_Free(S);
 				return;
 			}
@@ -271,9 +334,22 @@ static void charElement(void *userData, const char *string, int len) {
 			Vector_t Children    = XXELT(XXDOC(Doc)->cur)->Children;
 			if(tb_getSize(Children ) > 0 ) {
 				XmlElt_t lastSibling = tb_Get(Children, -1);
+				if(m->in_cdata) {
+
+					if(XELT_getType(lastSibling ) == XELT_TYPE_CDATA) {
+						tb_RawAdd(XXELT(lastSibling)->Text, tb_getSize(S), -1, tb_toStr(S));
+						tb_Free(S);
+					} else {		
+						X = tb_XmlElt(XELT_TYPE_CDATA, XXDOC(Doc)->cur, NULL, NULL);
+						XXELT(X)->Text = S;
+						TB_DOCK(XXELT(X)->Text);
+						tb_Push(XXELT(XXDOC(Doc)->cur)->Children, X);
+					}
+
+				} else {
 
 				if(XELT_getType(lastSibling ) == XELT_TYPE_TEXT) {
-					tb_StrAdd(XXELT(lastSibling)->Text, -1, "%s", S2sz(S));
+						tb_RawAdd(XXELT(lastSibling)->Text, tb_getSize(S), -1, tb_toStr(S));
 					tb_Free(S);
 				} else {		
 					X = tb_XmlElt(XELT_TYPE_TEXT, XXDOC(Doc)->cur, NULL, NULL);
@@ -281,12 +357,19 @@ static void charElement(void *userData, const char *string, int len) {
 					TB_DOCK(XXELT(X)->Text);
 					tb_Push(XXELT(XXDOC(Doc)->cur)->Children, X);
 				}
-
+				}
+			} else {		
+				if(m->in_cdata) {
+					X = tb_XmlElt(XELT_TYPE_CDATA, XXDOC(Doc)->cur, NULL, NULL);
+					XXELT(X)->Text = S;
+					TB_DOCK(XXELT(X)->Text);
+					tb_Push(XXELT(XXDOC(Doc)->cur)->Children, X);
 			} else {		
 				X = tb_XmlElt(XELT_TYPE_TEXT, XXDOC(Doc)->cur, NULL, NULL);
 				XXELT(X)->Text = S;
 				TB_DOCK(XXELT(X)->Text);
 				tb_Push(XXELT(XXDOC(Doc)->cur)->Children, X);
+			}
 			}
 
 		} else {

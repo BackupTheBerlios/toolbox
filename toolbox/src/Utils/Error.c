@@ -1,5 +1,5 @@
 //==================================================
-// $Id: Error.c,v 1.1 2004/05/12 22:04:53 plg Exp $
+// $Id: Error.c,v 1.2 2005/05/12 21:52:52 plg Exp $
 //==================================================
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -50,13 +50,13 @@ int get_tb_errno() {
 static void tb_errno_alloc() {
 	int rc;
 	//	pthread_once(&tb_errno_key_once, tb_errno_key_create);
-	rc = pthread_setspecific(tb_errno_key, tb_xmalloc(sizeof(int)));
+	rc = pthread_setspecific(tb_errno_key, malloc(sizeof(int)));
 	*(int *)pthread_getspecific(tb_errno_key) = 0;
 }
  
 /* Free the thread-specific buffer */
 static void tb_errno_destroy(void *buf) {
-	tb_xfree(buf);                           
+	free(buf);                           
 }
 	
 static void tb_errno_key_create() {

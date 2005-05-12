@@ -3,7 +3,8 @@
 # HOWTO:
 # compile your prog w/ -DTB_MEM_DEBUG
 # link w/ -ltbx
-# EXPORT fm_debug="file.name"
+# set environnement var :
+# export fm_debug="file.name"
 # exec the prog
 # analyze leaks (perl leak.pl file.name)
 #
@@ -26,10 +27,16 @@ while(<>) {
 		}
 	} elsif( $action =~ /^\+O/ ) {
 		$OBJ_ALLOC{$addr} = $line;
+		$OBJECT_ALLOC{$vals[0]}++;
 	} elsif( $action =~ /^[+*]F/ ) {
 		delete($MEM_ALLOC{$addr});
 	} elsif( $action =~ /^-O/ ) {
 		delete($OBJ_ALLOC{$addr});
+	} elsif( $action =~ /^\>O/ ) {
+		$OBJ_CACHE{$addr} = $line;
+	} elsif( $action =~ /^\<O/ ) {
+		delete($OBJ_CACHE{$addr});
+		$OBJECT_RECYCLE{$vals[0]}++;
 	}	else {
 		print "?? $_\n";
 	}
@@ -55,6 +62,15 @@ for $a ( @M ) {
 	print "$a - $line\n";
 }
 print "$size bytes leaked\n";
+
+for my $obj (keys %OBJECT_ALLOC) {
+	print "Class $obj created $OBJECT_ALLOC{$obj} times";
+	if( defined($OBJECT_RECYCLE{$obj})) {
+		print ", recycled $OBJECT_RECYCLE{$obj} times\n";
+	} else {
+		print "\n";
+	}
+}
 
 
 @O =  keys(%OBJ_ALLOC);

@@ -1,0 +1,77 @@
+Author Paul L. Gatille <Paul.Gatille@free.fr>
+begin_licence
+/*
+ * Copyright (c) 2004, Paul Gatille
+ * This file is part of Toolbox, an object-oriented utility library
+ *
+ * This library is free software; you can redistribute it and/or modify it
+ * under the terms of the "Artistic License" which comes with this Kit.
+ *
+ * This software is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+ * or FITNESS FOR A PARTICULAR PURPOSE. See the Artistic License for more
+ * details.
+*/
+end_licence
+
+#use defines for identifiers (static identifiers are allowed only for toolbox internal classes)
+TbxBuiltin
+
+ClassName tb_Object
+ClassPrefix Obj_
+#ClassParent may be empty
+ClassParent
+#Interface may also be empty or occurs more than once
+Interface
+
+
+#----------------------------------------------------
+#- FLAGS --------------------------------------------
+#----------------------------------------------------
+# __CTOR_      construct new object instance
+# __DTOR_      destroy object instance
+# __INSPECTOR_ doesn't modify object
+# __MUTATOR_   changes the object
+# __FACTORY_   construct other objects
+#----------------------------------------------------
+
+#----------------------------------------------------
+#- VISIBLILTY ---------------------------------------
+#----------------------------------------------------
+# __PUBLIC_ can be used by anyone
+# __PRIVATE_ can only be used by class and derivates
+# practically : private are declared in _impl.h ; 
+# publics are in vanilla .h
+#----------------------------------------------------
+
+begin_members
+#<name> <type may be composed of many words>
+#size unsigned int
+#__PUBLIC_ isA    unsigned int
+#__PRIVATE_ refcnt unsigned int
+#__PRIVATE_  docked int
+end_members
+
+#----------------------------------------------------
+#- Methods ------------------------------------------
+#----------------------------------------------------
+# ClassMethod : regular class method, implemented in class, can be derivated
+# ClassMethoVirtual : 
+#  - not implemented in class but can be implemented on class derivates (it's an interface)
+#  - must be __PUBLIC_
+# ClassMethodFinal : 
+#  - implemented in class, 
+#  - can't be implemented in derivates (private setters & getters for example)
+#  - must be __PRIVATE_
+#
+# N.B: having virtual methods in a class forbid to instanciate it (same as for an interface)
+#----------------------------------------------------
+
+ClassMethod __PUBLIC_ __TB_CTOR_      tb_Object_t  tb_Object   ()
+#ClassMethod __PUBLIC_ __TB_INSPECTOR_ int          tb_getSize  (tb_Object_t Self)
+ClassMethod __PUBLIC_ __TB_FACTORY_   tb_Object_t  tb_Clone    (tb_Object_t Self)
+ClassMethod __PUBLIC_ __TB_INSPECTOR_ void         tb_Dump     (tb_Object_t Self)
+ClassMethod __PUBLIC_ __TB_MUTATOR_   tb_Object_t  tb_Clear    (tb_Object_t Self)
+ClassMethod __PUBLIC_ __TB_INSPECTOR_ int          tb_Compare  (tb_Object_t Self, tb_Object_t Other)
+ClassMethod __PUBLIC_ __TB_FACTORY_   String_t     tb_Stringify(tb_Object_t Self)
+

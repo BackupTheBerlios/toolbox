@@ -1,5 +1,5 @@
 //========================================================================
-// 	$Id: regex.c,v 1.3 2004/07/01 21:39:59 plg Exp $
+// 	$Id: regex.c,v 1.4 2005/05/12 21:51:59 plg Exp $
 //========================================================================
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -105,7 +105,7 @@ retcode_t tb_matchRegex(String_t string, char *regex, int options) {
   int            rc;
   const char   * errptr;
   int            erroffset            = 1;
-	int            retval               = TB_ERR;
+	int            retval               = TB_OK; // FIX!!
   pcre         * re                   = NULL;
 	pcre_extra   * extra                = NULL;
 	unsigned char *table                = NULL;

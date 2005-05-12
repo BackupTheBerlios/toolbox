@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 2; indent-tabs-mode: t; c-basic-offset: 2 -*- */
 //======================================================
-// $Id: Hash.h,v 1.3 2004/07/01 21:37:01 plg Exp $
+// $Id: Hash.h,v 1.4 2005/05/12 21:54:36 plg Exp $
 //======================================================
 
 /* Copyright (c) 1999-2002, Paul L. Gatille. All rights reserved.
@@ -77,7 +77,7 @@ inline tb_hash_node_t *XHNODES(Hash_t H);
 
 // initializer for iterable iterface
 void register_Hash_Iterable_once(int Object_id);
-tb_hash_node_t *tb_hash_lookup_node(Hash_t H, tb_Key_t the_key);
+tb_hash_node_t Hash_lookup(Hash_t H, tb_Key_t the_key, int *bucket);
 // sucked from glib
 
 /* GLIB - Library of useful routines for C programming

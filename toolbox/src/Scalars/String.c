@@ -1,5 +1,5 @@
 //------------------------------------------------------------------
-// $Id: String.c,v 1.5 2004/07/01 21:45:06 plg Exp $
+// $Id: String.c,v 1.6 2005/05/12 21:52:12 plg Exp $
 //------------------------------------------------------------------
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -32,6 +32,7 @@
 #include <assert.h>
 
 #include "Toolbox.h"
+#include "Memory.h"
 #include "tb_global.h"
 #include "strfmt.h"
 #include "String.h"
@@ -42,11 +43,33 @@
 #include "Memory.h"
 #include "Error.h"
 
+#include "Tlv.h"
+
+String_t string_default_ctor();
+String_t tb_string_new_no_copy(int len, char *data);
 
 inline string_members_t XStr(String_t This) {
 	return (string_members_t)((__members_t)tb_getMembers(This, TB_STRING))->instance;
 }
 
+#define STRING_RECYCLE_MAX  20
+
+struct string_slabs {
+	pthread_mutex_t   mtx;
+	String_t        * recycled;
+	int               max;
+	int               nb;
+	int               max_misses;
+};
+typedef struct string_slabs *string_slabs_t;
+
+static String_t     stringFactory();
+
+string_slabs_t StringRecycler;
+
+static tb_Object_t  tb_string_set           (String_t S1, String_t S2);
+static Tlv_t        tb_string_toTlv         (String_t Self);
+static String_t     tb_string_fromTlv       (Tlv_t T);
 static void       * tb_string_free          (String_t S);
 static String_t     tb_string_clone         (String_t S);
 static String_t     tb_string_clear         (String_t S);
@@ -56,13 +79,14 @@ static String_t     tb_string_stringify     (String_t S);
 static cmp_retval_t tb_string_compare       (String_t S1, String_t S2);
 
 void __build_string_once(int OID) {
-	tb_registerMethod(OID, OM_NEW,          tb_string_new);
+	tb_registerMethod(OID, OM_NEW,          string_default_ctor);
 	tb_registerMethod(OID, OM_FREE,         tb_string_free);
 	tb_registerMethod(OID, OM_GETSIZE,      tb_string_getsize);
 	tb_registerMethod(OID, OM_CLONE,        tb_string_clone);
 	tb_registerMethod(OID, OM_DUMP,         tb_string_dump);
 	tb_registerMethod(OID, OM_CLEAR,        tb_string_clear);
 	tb_registerMethod(OID, OM_COMPARE,      tb_string_compare);
+	tb_registerMethod(OID, OM_SET,          tb_string_set);
 
 	//	tb_registerMethod(OID, OM_STRINGIFY,    S2sz); // fixme: should be escaped ("\"")
 	tb_registerMethod(OID, OM_STRINGIFY,    tb_string_stringify);
@@ -79,6 +103,23 @@ void __build_string_once(int OID) {
 
 	tb_registerMethod(OID, OM_MARSHALL,     tb_string_marshall);
 	tb_registerMethod(OID, OM_UNMARSHALL,   tb_string_unmarshall);
+
+	tb_registerMethod(OID, OM_TOTLV,        tb_string_toTlv);
+	tb_registerMethod(OID, OM_FROMTLV,      tb_string_fromTlv);
+
+	if(1) {
+		char *s;
+		StringRecycler = calloc(1, sizeof(struct string_slabs));
+		if((s = getenv("tb_string_recycler"))) {
+			StringRecycler->max = atol(s);
+		}else {
+			StringRecycler->max = STRING_RECYCLE_MAX;
+		}
+		tb_info("setup StringRecycler capacity to %d slots\n", StringRecycler->max); 
+		StringRecycler->recycled = calloc(StringRecycler->max+1, sizeof(String_t));
+		StringRecycler->nb = 0;
+		pthread_mutex_init(&(StringRecycler->mtx), NULL);
+	}
 }
 
 
@@ -159,6 +200,8 @@ String_t dbg_tb_string(char *func, char *file, int line, char *fmt, ...) {
 	String_t S;
 	int len;
 
+	tb_warn("called\n");
+
 	if(fmt) {
 		va_list parms;
 		va_start(parms, fmt);
@@ -231,13 +274,21 @@ String_t tb_String(char *fmt, ...) {
 	String_t S;
 	int len;
 
-	if(fmt) {
+
+	if(fmt != NULL) {
 		va_list parms;
 		va_start(parms, fmt);
-		
+		if(fmt[0]=='%' && fmt[1]=='s' && fmt[2]==0) {
+			char *s = va_arg(parms, char*);
+			if(s == NULL) s = "(NULL)";
+			len = strlen(s);
+			S = tb_string_new_no_copy(len, tb_xstrdup(s));
+		} else {
 		len = __tb_vasprintf(&s, fmt, parms);
-		S = tb_string_new(len, s);
-		tb_xfree(s);
+						S = tb_string_new_no_copy(len, s);
+/* 			S = tb_string_new(len, s); */
+/* 			tb_xfree(s); */
+		}
 	} else {
 		S = tb_string_new(0, NULL);
 	}
@@ -297,32 +348,48 @@ String_t tb_nString(int len, char *fmt, ...) {
 String_t tb_string_new(int len, char *data) {
 	tb_Object_t This;
 	string_members_t m;
-	pthread_once(&__class_registry_init_once, tb_classRegisterInit);
 	
-	This = tb_newParent(TB_STRING);
-
-	This->isA     = TB_STRING;
-	This->refcnt  = 1;
-	This->members->instance  = (string_members_t)tb_xcalloc(1, sizeof(struct string_members));
-	m = This->members->instance;
+	This = string_default_ctor();
+	m = XStr(This);
 	m->size        = len;
-	m->grow_factor = 2;
 	
 	if(len) {
-		m->data = tb_xcalloc(1, len +1);
+		m->data = tb_xrealloc(m->data, len +1);
 		memcpy(m->data, data, len);
+		m->data[len] = 0;
 		m->allocated = len+1;
-	} else {
-		m->data = tb_xcalloc(1, 1);
-		m->allocated = 1;
 	}
-	if(fm->dbg) fm_addObject(This);
-
-	//	tb_warn("tb_string_new: instance_type=%d\n", This->members->instance_type);
 
 	return This;
 }
 
+
+String_t tb_string_new_no_copy(int len, char *data) {
+	tb_Object_t This;
+	string_members_t m;
+
+	This = stringFactory();
+	m = XStr(This);
+	m->grow_factor = 2; // beware : let this to zero, and you'll die atrocely soon (used in resizeing)
+
+	m = XStr(This);
+	m->size  = len;
+	m->data  = data;
+	m->data[len] = 0;
+	m->allocated = len+1;
+
+	return This;
+}
+
+
+String_t string_default_ctor() {
+	String_t This = stringFactory();
+	string_members_t m = XStr(This);
+	m->data = tb_xcalloc(1, 1);
+	m->allocated   = 1;
+	m->grow_factor = 2; // beware : let this to zero, and you'll die atrocely soon (used in resizeing)
+	return This;
+}
 
 
 void tb_string_marshall(String_t marshalled, String_t S, int level) {
@@ -332,7 +399,12 @@ void tb_string_marshall(String_t marshalled, String_t S, int level) {
 	indent[level] = 0;
 	
 	if(m->size >0) {
+		if(strchr((char *)m->data, '&') || strchr((char *)m->data, '<')) {
+			tb_StrAdd(marshalled, -1, "%s<string><![CDATA[%s]]></string>\n", indent, (char *)m->data);
+		} else {
 		tb_StrAdd(marshalled, -1, "%s<string>%s</string>\n", indent, (char *)m->data);
+		}
+
 	} else {
 		tb_StrAdd(marshalled, -1, "%s<string/>\n", indent);
 	}
@@ -356,18 +428,21 @@ String_t tb_string_unmarshall(XmlElt_t xml_entity) {
 	return S;
 }
 
+static Tlv_t tb_string_toTlv(String_t Self) {
+	string_members_t m = XStr(Self);
+	return Tlv(TB_STRING, m->size+1, m->data);
+}
+
+static String_t tb_string_fromTlv(Tlv_t T) {
+	int len   = *(((int*)T)+1);
+	char *val = (char *)(((int*)T)+2);
+	return tb_nString(len, val);
+}
 
 static int tb_string_getsize(String_t S) {
 	return XStr(S)->size;
 }
 
-static void *tb_string_free(String_t S) {
-	string_members_t m = XStr(S);
-	if(m && m->data) tb_xfree(m->data);
-	tb_freeMembers(S);
-	S->isA = TB_STRING;
-	return tb_getParentMethod(S, OM_FREE);
-}
 
 static void tb_string_dump(String_t S, int level) {
 	int i;
@@ -449,17 +524,17 @@ int tb_tokenize(Vector_t V, char *s, char *delim, int flags) {
   int f         = 0;
 	int no_blanks = !(flags  & TK_KEEP_BLANKS);
 	char *quotes  = NULL;
-	no_error;
+	//	no_error;
 	if(flags & TK_ESC_QUOTES) quotes = "\"'";
 
   if(s == NULL) { 
 		tb_error("tb_tokenize: can't split NULL !!\n"); 
-		set_tb_errno(TB_ERR_BAD);
+		//		set_tb_errno(TB_ERR_BAD);
 		return TB_ERR; 
 	}
   if(delim == NULL) { 
 		tb_error("tb_tokenize: can't split on NULL !!\n"); 
-		set_tb_errno(TB_ERR_UNSET);
+		//		set_tb_errno(TB_ERR_UNSET);
 		return TB_ERR; 
 	}
   if(! tb_valid(V, TB_VECTOR, __FUNCTION__)) 	return TB_ERR; 
@@ -758,7 +833,7 @@ String_t dbg_tb_substr(char *func, char *file, int line, String_t S, int start, 
 String_t tb_StrSub(String_t S, int start, int len) {
 	String_t new;
 
-	no_error;
+	//	no_error;
 	if(tb_valid(S, TB_STRING, __FUNCTION__)) {
 		string_members_t m = XStr(S);
 
@@ -812,7 +887,7 @@ String_t tb_StrSub(String_t S, int start, int len) {
 String_t tb_StrGet(String_t S, int start, int len) {
 	String_t new;
 
-	no_error;
+	//	no_error;
 	if(tb_valid(S, TB_STRING, __FUNCTION__)) { 
 		string_members_t m = XStr(S);
 
@@ -877,7 +952,7 @@ inline static int str_check_bounds(int size, int *start, int *len) {
  * @ingroup String
  */
 String_t tb_StrDel(String_t S, int start, int len) {
-	no_error;
+	//	no_error;
 
 	if(tb_valid(S, TB_STRING, __FUNCTION__)) {
 
@@ -887,7 +962,7 @@ String_t tb_StrDel(String_t S, int start, int len) {
 
 		if(! str_check_bounds(m->size, &start, &len)) {
 			tb_error("tb_StrDel: args out of bounds (%d->%d/%d)\n", start, len, m->size);
-			set_tb_errno(TB_ERR_OUT_OF_BOUNDS);
+			//			set_tb_errno(TB_ERR_OUT_OF_BOUNDS);
 			return NULL;
 		}
 
@@ -962,7 +1037,7 @@ String_t tb_StrAdd(String_t S, int start, char *fmt, ...) {
 	char            * s;
 	va_list parms;
 
-	no_error;
+	//	no_error;
 
 	if(tb_valid(S, TB_STRING, __FUNCTION__)) {
 	
@@ -975,7 +1050,7 @@ String_t tb_StrAdd(String_t S, int start, char *fmt, ...) {
 		if(!(TB_ABS(start) <= m->size)) {
 			tb_error("tb_StrAdd: unbound start (%d) sz=%d",
 							 start, m->size); 
-			set_tb_errno(TB_ERR_OUT_OF_BOUNDS);
+			//			set_tb_errno(TB_ERR_OUT_OF_BOUNDS);
 			return S;
 		}
 
@@ -1057,7 +1132,7 @@ String_t tb_StrnAdd(String_t S, int len, int start, char *fmt, ...) {
 	string_members_t   m;
 	va_list parms;
 
-	no_error;
+	//	no_error;
 
 	if(tb_valid(S, TB_STRING, __FUNCTION__)) {
 	
@@ -1069,7 +1144,7 @@ String_t tb_StrnAdd(String_t S, int len, int start, char *fmt, ...) {
 		if(!(TB_ABS(start) <= m->size)) {
 			tb_error("tb_StrnAdd: unbound start (%d) sz=%d",
 							 start, m->size); 
-			set_tb_errno(TB_ERR_OUT_OF_BOUNDS);
+			//			set_tb_errno(TB_ERR_OUT_OF_BOUNDS);
 			return S;
 		}
 		va_start(parms, fmt);
@@ -1124,8 +1199,6 @@ String_t tb_StrnAdd(String_t S, int len, int start, char *fmt, ...) {
 String_t tb_RawAdd(String_t S, int len, int start, char *raw) {
 	string_members_t m;
 
-	no_error;
-
 	if(tb_valid(S, TB_STRING, __FUNCTION__)) {
 	
 		if(raw == NULL || len == 0) return S;
@@ -1136,22 +1209,16 @@ String_t tb_RawAdd(String_t S, int len, int start, char *raw) {
 		if(!(TB_ABS(start) <= m->size)) {
 			tb_error("tb_RawAdd: unbound start (%d) sz=%d",
 							 start, m->size); 
-			set_tb_errno(TB_ERR_OUT_OF_BOUNDS);
+			//			set_tb_errno(TB_ERR_OUT_OF_BOUNDS);
 			return S;
 		}
-
 		if(start < 0) { // add string starting from end
 			start = (m->size - TB_ABS(start)) +1;
 		}
 
 		if(m->allocated <= (m->size + len +1)) {
-			char *s;
 			m->allocated = (m->size + len +1) * m->grow_factor;
-			s = tb_xrealloc(m->data, m->allocated);
-			m->data = s;
-			tb_debug("(rawadd) reallocated %p -> %d\n", S, m->allocated);
-		} else {
-			tb_debug("(rawadd) no realloc needed %p (%d/%d)\n", S, m->size, m->allocated);
+			m->data = tb_xrealloc(m->data, m->allocated);
 		}
 
 		memmove(m->data + start + len, m->data + start, (m->size - start) + 1);
@@ -1184,7 +1251,7 @@ String_t tb_RawAdd(String_t S, int len, int start, char *raw) {
  * @ingroup String
  */
 String_t tb_StrFill(String_t S, int len, int start, char filler) {
-	no_error;
+	//	no_error;
 
 	if(tb_valid(S, TB_STRING, __FUNCTION__)) {
 		string_members_t m = XStr(S);
@@ -1194,7 +1261,7 @@ String_t tb_StrFill(String_t S, int len, int start, char filler) {
 		if(!(TB_ABS(start) <= m->size)) {
 			tb_error("tb_StrFill: unbound start (%d) sz=%d",
 							 start, m->size); 
-			set_tb_errno(TB_ERR_OUT_OF_BOUNDS);
+			//			set_tb_errno(TB_ERR_OUT_OF_BOUNDS);
 			return S;
 		}
 	
@@ -1245,7 +1312,7 @@ retcode_t tb_StrRepl(String_t S, char *search, char *replace) {
   int              start, len;
   int              lsearch, lreplace;
 
-  no_error;
+	//  no_error;
 
   if(tb_valid(S, TB_STRING, __FUNCTION__) && search != NULL && replace != NULL ) {    
   
@@ -1325,7 +1392,7 @@ retcode_t tb_StrRepl(String_t S, char *search, char *replace) {
  * @ingroup String
  */
 int tb_StrCmp(String_t S, char *match, int case_sensitive) {
-	no_error;
+	//	no_error;
 	if(tb_valid(S, TB_STRING, __FUNCTION__) && match != NULL) {
 		string_members_t m = XStr(S);
 		
@@ -1339,13 +1406,23 @@ int tb_StrCmp(String_t S, char *match, int case_sensitive) {
 }
 
 static cmp_retval_t tb_string_compare(String_t S1, String_t S2) {
-	string_members_t m1 = XStr(S1);
-	string_members_t m2 = XStr(S2);
-	int rez = strcmp(m1->data, m2->data);
+
+	char *s1 = tb_toStr(S1);
+	char *s2 = tb_toStr(S2);
+	int rez = strcmp(s1, s2);
 	if(rez == 0) return TB_CMP_IS_EQUAL;
 	return (rez >0) ? TB_CMP_IS_GREATER : TB_CMP_IS_LOWER;
 }
 
+static tb_Object_t tb_string_set(String_t S1, String_t S2) {
+	string_members_t m1 = XStr(S1);
+	//FIXME: this hack should be replaced with a better ctor strategy (initial ctor must allocate '')
+	if(m1->data == NULL && m1->allocated ==0) {
+		m1->data      = tb_xcalloc(1, 1);
+		m1->allocated = 1;
+	}
+	return tb_StrAdd(tb_Clear(S1), -1, "%S", S2); 
+}
 
 /** Check if String_t equals char *string with strict case sensivity
  *
@@ -1361,13 +1438,13 @@ static cmp_retval_t tb_string_compare(String_t S1, String_t S2) {
  * @ingroup String
  */
 retcode_t tb_StrEQ(String_t S, char *match) {
-	no_error;
+	//	no_error;
 	if(tb_valid(S, TB_STRING, __FUNCTION__) && match != NULL) {
 		string_members_t m = XStr(S);
 		
 		return (strcmp(m->data, match) == 0) ? TB_OK : TB_KO;
 	}
- return TB_ERR;
+ return TB_KO;
 }
 
 /** Check if String_t equals char *string without case sensivity
@@ -1384,13 +1461,13 @@ retcode_t tb_StrEQ(String_t S, char *match) {
  * @ingroup String
  */
 retcode_t tb_StrEQi(String_t S, char *insensitive_match) {
-	no_error;
+	//	no_error;
 	if(tb_valid(S, TB_STRING, __FUNCTION__) && insensitive_match != NULL) {
 		string_members_t m = XStr(S);
 
 		return (strcasecmp(m->data, insensitive_match) == 0) ? TB_OK : TB_KO;
 	}
- return TB_ERR;
+ return TB_KO;
 }
 
 
@@ -1409,7 +1486,7 @@ retcode_t tb_StrEQi(String_t S, char *insensitive_match) {
  * @ingroup String
 */
 String_t tb_ltrim(String_t S) { 
-	no_error;
+	//	no_error;
 	if(tb_valid(S, TB_STRING, __FUNCTION__)) 
 		{
 			string_members_t m = XStr(S);
@@ -1434,7 +1511,7 @@ String_t tb_ltrim(String_t S) {
  * @ingroup String
 */
 String_t tb_rtrim(String_t S) {
-	no_error;
+	//	no_error;
 	if(tb_valid(S, TB_STRING, __FUNCTION__)) 
 		{
 			string_members_t m = XStr(S);
@@ -1477,7 +1554,7 @@ String_t tb_trim(String_t S) {
  * @ingroup String
 */
 String_t tb_chomp(String_t S) {
-	no_error;
+	//	no_error;
 
 	if(tb_valid(S, TB_STRING, __FUNCTION__)) {
 		string_members_t m = XStr(S);
@@ -1493,6 +1570,74 @@ String_t tb_chomp(String_t S) {
 	return S;
 }
 
+
+
+static String_t stringFactory() {
+	String_t S;
+	pthread_mutex_lock(&(StringRecycler->mtx));
+	if(StringRecycler->nb >0) {
+		S = StringRecycler->recycled[--(StringRecycler->nb)];
+		StringRecycler->recycled[StringRecycler->nb] = NULL;
+		S->isA       = TB_STRING;
+		if(fm->dbg) fm_recycleObject(S);
+		if(StringRecycler->max_misses >0) {
+			//			tb_info("stringFactory: max misses was %d\n", StringRecycler->max_misses);
+			StringRecycler->max_misses = 0;
+		}
+	} else {
+		StringRecycler->max_misses++;
+		S = tb_newParent(TB_STRING);
+		S->isA       = TB_STRING;
+		S->members->instance  = (string_members_t)tb_xcalloc(1, sizeof(struct string_members));
+		if(fm->dbg) fm_addObject(S);
+	}		
+
+	S->refcnt = 1;
+
+	pthread_mutex_unlock(&(StringRecycler->mtx));
+	return S;
+}
+
+void stringFactoryCleanCache() {
+	int nb;
+	String_t S;
+	pthread_mutex_lock(&(StringRecycler->mtx));
+	StringRecycler->max = 0;
+	nb = StringRecycler->nb;
+	StringRecycler->nb = 0;
+	pthread_mutex_unlock(&(StringRecycler->mtx));
+	fm_fastfree_on();
+	while(nb >0) {
+		S = StringRecycler->recycled[--nb];
+		S->isA = TB_STRING;
+		S->refcnt = 1;
+		tb_Free(S);
+	}
+	fm_fastfree_off();
+}
+
+
+
+static void *tb_string_free(String_t S) {
+	string_members_t m = XStr(S);
+	if(m && m->data) tb_xfree(m->data);
+	m->data = NULL;
+	pthread_mutex_lock(&(StringRecycler->mtx));
+	if(StringRecycler->nb < StringRecycler->max) {
+		m->allocated = 0;
+		m->size      = 0;
+		StringRecycler->recycled[StringRecycler->nb++] = S;
+		if(fm->dbg) fm_dropObject(S);
+		S->isA = -1;
+		pthread_mutex_unlock(&(StringRecycler->mtx));
+	} else {
+		pthread_mutex_unlock(&(StringRecycler->mtx));
+		tb_freeMembers(S);
+		S->isA = TB_STRING;
+		return tb_getParentMethod(S, OM_FREE);
+	}
+	return NULL;
+}
 
 
 /*

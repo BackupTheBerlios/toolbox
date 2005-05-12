@@ -1,4 +1,4 @@
-// $Id: xml_test.c,v 1.1 2004/05/12 22:05:15 plg Exp $
+// $Id: xml_test.c,v 1.2 2005/05/12 21:52:41 plg Exp $
 #undef __BUILD
 #include <unistd.h>
 #include <sys/types.h>
@@ -23,8 +23,8 @@ int main(int argc, char **argv) {
 											 NULL };
 	*/
 	//	char *tstfiles[] = { "soap.xml", NULL };
-	//	char *tstfiles[] = { "test.xml", NULL };
-	char *tstfiles[] = { "utf8.xml", NULL };
+	char *tstfiles[] = { "test.xml", NULL };
+//	char *tstfiles[] = { "utf8.xml", NULL };
 	char **file = tstfiles;
 
 
@@ -37,15 +37,15 @@ int main(int argc, char **argv) {
 	
 
 	do {
-		//		String_t S = slurpFile( *file++ );
-		String_t S = tb_String("%s", tst);
+		String_t S = slurpFile( *file++ );
+//		String_t S = tb_String("%s", tst);
 
-		tb_UrlDecode(S);
-		tb_Dump(S);
-		//		tb_UTF8_to_Latin1(S);
-		tb_Dump(S);
-		//tb_UTF8_to_Latin1(S);
-		tb_Dump(S);
+/* 		tb_UrlDecode(S); */
+/* 		tb_Dump(S); */
+/* 		//		tb_UTF8_to_Latin1(S); */
+/* 		tb_Dump(S); */
+/* 		//tb_UTF8_to_Latin1(S); */
+/* 		tb_Dump(S); */
 
 		//		tb_Dump(tb_UrlEncode(S));
 		//tb_Dump(tb_UrlDecode(S));
@@ -58,7 +58,10 @@ int main(int argc, char **argv) {
 		tb_profile("doc parsed\n");
 		tb_Free(S);
 		Root = XDOC_getRoot(Doc);
-		tb_Dump( Root );
+
+		String_t Reverse = XDOC_to_xml(Doc);
+		fprintf(stderr, "%s", tb_toStr(Reverse));
+
 
 		exit(0);
 

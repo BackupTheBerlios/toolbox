@@ -1,5 +1,5 @@
 //========================================================================
-// 	$Id: misc.c,v 1.1 2004/05/12 22:04:53 plg Exp $
+// 	$Id: misc.c,v 1.2 2005/05/12 21:52:52 plg Exp $
 //========================================================================
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -34,7 +34,7 @@
 #include "Toolbox.h"
 #include "Memory.h"
 #include "misc.h"
-#include "strfmt.h"
+#include "String.h"
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -49,6 +49,9 @@
 #include <unistd.h>
 #include <syslog.h>
 #include <sys/time.h>
+#include <execinfo.h>
+
+char __my_name[50];
 
 #ifdef WITH_SYSLOG
 pthread_once_t _openlog_once = PTHREAD_ONCE_INIT;   
@@ -82,6 +85,9 @@ char *dbg_errlevels[] = {
 void setup_trace_once(void) {
 	char *s;
 	if((s = getenv("tb_debug")))  tb_errorlevel = TB_CLAMP((atoi(s)), 0, 7);
+
+/* 	memset(__my_name,0,50); */
+/* 	char *ident = getMyName();	 */
 }
 
 
@@ -90,7 +96,7 @@ void setup_trace_once(void) {
  *
  * @ingroup Logger
  */
-void tb_trace(int level, char *format, ...) {
+void tb_trace(int level, const char *func, const char *format, ...) {
   time_t   time_now;
   struct   tm temps_now;
   char     curDate[20];
@@ -121,11 +127,13 @@ void tb_trace(int level, char *format, ...) {
 		time_now = time(NULL);
 		localtime_r(&time_now, &temps_now);
 		strftime(curDate, sizeof curDate, "%d/%m %H:%M:%S", &temps_now);
-		fprintf(stderr, "%s %s [%d/%ld] %s\n", 
+		fprintf(stderr, "%s %s [%d/%lu] %s: %s\n", 
 						curDate, 
 						dbg_errlevels[level],
 						getpid(), 
+						//						__my_name,
 						pthread_self(), 
+						func, 
 						message);
 		fflush(stderr);
 	}
@@ -163,7 +171,7 @@ void tb_profile(char *format, ...) {
 	gettimeofday(__p_t2, NULL);
 
   va_start(ap, format);
-	tb_vsnprintf(message, 256, format, ap);
+	vsnprintf(message, 256, format, ap);
   va_end(ap);
 
   l = strlen(message);
@@ -173,7 +181,7 @@ void tb_profile(char *format, ...) {
 	localtime_r(&time_now, &temps_now);
 	strftime(curDate, sizeof curDate, "%d/%m %H:%M:%S", &temps_now);
 
-	fprintf(stderr, "%s +%02.06f [%d/%ld] %s\n", 
+	fprintf(stderr, "%s +%02.06f [%d/%lu] %s\n", 
 					curDate, 
 					mdiff(*__p_t1, *__p_t2),
 					getpid(), 
@@ -214,13 +222,10 @@ char *getMyName() {
 		FILE * fd;
 		char buffer[MAX_BUFFER];
 		Vector_t V = tb_Vector();
-		if( (fd = fopen("/proc/self/stat", "r")) == NULL ) return NULL;
+		if( (fd = fopen("/proc/self/cmdline", "r")) == NULL ) return NULL;
 		if( fgets(buffer, MAX_BUFFER-1, fd) == NULL) { fclose(fd); return NULL; }
 		fclose(fd);
-		tb_tokenize(V, buffer, " ", 0);
-		__tb_asprintf(&id, "%s", (tb_toStr(V, 1))+1);
-		if((s=strchr(id, ')')) != NULL) { *s=0; }
-		tb_Free(V);
+		strncpy(__my_name, buffer, TB_MIN(strlen(buffer), 49));
 	} else {
 		id = (char *)((char*(*)(void))_getnamefnc)();
 		fprintf(stderr, "->>>> %s <<<<<<<\n", id);
@@ -239,7 +244,7 @@ Hash_t tb_readConfig(char *file) { // fixme : redo this ; use tb_Properties
 	String_t S;
 
 	if((FH = fopen(file, "r")) == NULL) {
-		tb_trace(TB_CRIT, "tb_readConfig :open <%s> %s\n", file, strerror(errno));
+		tb_crit("tb_readConfig :open <%s> %s\n", file, strerror(errno));
 		return NULL;
 	}
 
@@ -275,5 +280,20 @@ Hash_t tb_readConfig(char *file) { // fixme : redo this ; use tb_Properties
 }
 
 
+
+void __dump_call_stack() {
+
+	void *trace[16];
+  char **messages = (char **)NULL;
+  int i, trace_size = 0;
+
+  trace_size = backtrace(trace, 16);
+  messages = backtrace_symbols(trace, trace_size);
+  fprintf(stderr, "[backtrace] Execution path:\n");
+  fprintf(stderr, "[backtrace]   called from %s\n", messages[1]);
+  for (i=2; i<trace_size; ++i) {
+		fprintf(stderr, "[backtrace] %s\n", messages[i]);
+	}
+}
 
 

@@ -1,5 +1,5 @@
 //==================================================
-// $Id: RW_lock.c,v 1.1 2004/05/12 22:04:51 plg Exp $
+// $Id: RW_lock.c,v 1.2 2005/05/12 21:51:51 plg Exp $
 //==================================================
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -138,7 +138,7 @@ static void init_LockManager() {
 	__LM = tb_xcalloc(1, sizeof(struct lock_manager));
 	pthread_mutex_init(&__LM->mtx, NULL);
 	__LM->sharing = tb_Hash();
-	tb_info("lock manager initialized\n");
+	//	tb_info("lock manager initialized\n");
 }
 
 
@@ -156,9 +156,9 @@ static tb_lock_t newLock(int flag) {
 
 static int wait_share(tb_lock_t L) {
 	pthread_mutex_lock(&L->mtx);
-	tb_info("wait_share: waiting for lock\n");
+	//	tb_info("wait_share: waiting for lock\n");
 	pthread_cond_wait(&L->cond, &L->mtx);
-	tb_info("wait_share: got the lock\n");
+	//	tb_info("wait_share: got the lock\n");
 	pthread_mutex_unlock(&L->mtx);
 
 	return 1;
@@ -186,17 +186,17 @@ int tb_Rlock(void * O) {
 
 	RWL = (rw_lock_t)_P2p(tb_Get(__LM->sharing, S2sz(K)));
 	if( RWL != NULL) {
-		tb_info("Rlock: found RWL\n");
+		//		tb_info("Rlock: found RWL\n");
 		pthread_mutex_lock(&RWL->mlock);
 		pthread_mutex_unlock(&__LM->mtx);
 
 		if(tb_errorlevel >= TB_NOTICE) dump_share_list(RWL);
 
 		if( RWL->writer_tid != 0 ) { // write lock set
-			tb_info("Rlock: RWL already Wlocked\n");
+			//			tb_warn("Rlock: RWL already Wlocked by %d\n", RWL->writer_tid);
 			if( RWL->writer_tid != pthread_self() ) { // ?? is recursive locking considered harmful ?
 				// need to block until writing is finished
-				tb_info("Rlock: register for Rlocking\n");
+				//				tb_info("Rlock: register for Rlocking\n");
 				_share_list_push(RWL->sharers, L);
 				pthread_mutex_unlock(&RWL->mlock);
 				wait_share(L);
@@ -204,13 +204,13 @@ int tb_Rlock(void * O) {
 				_sharer_to_locker(RWL, pthread_self());
 				pthread_mutex_unlock(&RWL->mlock);
 			} else {
-				tb_info("Rlock: recursive locking\n");
+				//				tb_info("Rlock: recursive locking\n");
 				_share_list_push(RWL->lockers, L);
 				pthread_mutex_unlock(&RWL->mlock);
 			}
 		} else {
 			if(RWL->sharers->nb > 0) {
-				tb_info("Rlock: register for Rlocking\n");
+				//				tb_info("Rlock: register for Rlocking\n");
 				_share_list_push(RWL->sharers, L);
 				pthread_mutex_unlock(&RWL->mlock);
 				wait_share(L);
@@ -218,13 +218,13 @@ int tb_Rlock(void * O) {
 				_sharer_to_locker(RWL, pthread_self());
 				pthread_mutex_unlock(&RWL->mlock);
 			} else {
-				tb_info("Rlock: not Wlocked : add Rlock\n");
+				//				tb_info("Rlock: not Wlocked : add Rlock\n");
 				_share_list_push(RWL->lockers, L);
 				pthread_mutex_unlock(&RWL->mlock);
 			}
 		}
 	} else {
-		tb_info("Rlock: RWL not already created : create and lock object [%S]\n", K);
+		//		tb_info("Rlock: RWL not already created : create and lock object [%S]\n", K);
 		RWL = tb_xcalloc(1, sizeof(struct rw_lock));
 		RWL->sharers = (share_list_t)tb_xcalloc(1, sizeof(struct share_list));
 		RWL->lockers = (share_list_t)tb_xcalloc(1, sizeof(struct share_list));
@@ -260,17 +260,17 @@ int tb_Wlock(void * O) {
 
 	RWL = (rw_lock_t)_P2p(tb_Get(__LM->sharing,S2sz(K)));
 	if( RWL != NULL) {
-		tb_info("Wlock: found RWL\n");
+		//		tb_info("Wlock: found RWL\n");
 		pthread_mutex_lock(&RWL->mlock);
 		pthread_mutex_unlock(&__LM->mtx);
 
 		if(tb_errorlevel >= TB_NOTICE) dump_share_list(RWL);
 
 		if( RWL->writer_tid != 0 ) { // write lock set
-			tb_info("Wlock: RWL already Wlocked\n");
+			//			tb_warn("Wlock: RWL already Wlocked by %d\n", RWL->writer_tid);
 			if( RWL->writer_tid != pthread_self() ) { // ?? is recursive locking considered harmful ?
 				// need to block until writing is finished
-				tb_info("Wlock: register for Wlock\n");
+				//				tb_info("Wlock: register for Wlock\n");
 				_share_list_push(RWL->sharers, L);
 				pthread_mutex_unlock(&RWL->mlock);
 				wait_share(L);
@@ -279,13 +279,14 @@ int tb_Wlock(void * O) {
 				RWL->writer_tid= pthread_self();
 				pthread_mutex_unlock(&RWL->mlock);
 			} else {
-				tb_info("Wlock: recursive Wlocking\n");
+				//				tb_info("Wlock: recursive Wlocking\n");
 				_share_list_push(RWL->lockers, L);
 				pthread_mutex_unlock(&RWL->mlock);
 			}
 		} else {
 			if( RWL->lockers->nb > 0 ) { // some readers lock
-				tb_info("Wlock: register for Wlock\n");
+				//				tb_warn("Wlock: RWL queue already Rlocked by %d threads\n", RWL->lockers->nb);
+				//				tb_info("Wlock: register for Wlock\n");
 				_share_list_push(RWL->sharers, L);
 				pthread_mutex_unlock(&RWL->mlock);
 				wait_share(L);
@@ -294,14 +295,14 @@ int tb_Wlock(void * O) {
 				RWL->writer_tid= pthread_self();
 				pthread_mutex_unlock(&RWL->mlock);
 			} else {
-				tb_info("Wlock: nobody locks : take Wlock\n");
+				//				tb_info("Wlock: nobody locks : take Wlock\n");
 				_share_list_push(RWL->lockers, L);
 				RWL->writer_tid= pthread_self();
 				pthread_mutex_unlock(&RWL->mlock);
 			}
 		}
 	} else {
-		tb_info("Wlock: RWL not already created : create and lock obj [%S]\n", K);
+		//		tb_info("Wlock: RWL not already created : create and lock obj [%S]\n", K);
 		RWL = tb_xcalloc(1, sizeof(struct rw_lock));
 		RWL->sharers = (share_list_t)tb_xcalloc(1, sizeof(struct share_list));
 		RWL->lockers = (share_list_t)tb_xcalloc(1, sizeof(struct share_list));
@@ -335,39 +336,39 @@ int tb_Unlock(void * O) {
 
 	RWL = (rw_lock_t)_P2p(tb_Get(__LM->sharing, S2sz(K)));
 	if( RWL != NULL) {
-		tb_info("Unlock: RWL found\n");
+		//		tb_info("Unlock: RWL found\n");
 		pthread_mutex_lock(&RWL->mlock);
 		pthread_mutex_unlock(&__LM->mtx);
 
 		if(tb_errorlevel >= TB_NOTICE) dump_share_list(RWL);
 
 		_lock_list_remove(RWL, pthread_self());
-		tb_info("Unlock: removed lock (%d lockers)\n", RWL->lockers->nb);
+		//		tb_info("Unlock: removed lock (%d lockers)\n", RWL->lockers->nb);
 
 		if(tb_errorlevel >= TB_NOTICE) dump_share_list(RWL);
 
 		if(RWL->sharers->nb >0 && RWL->writer_tid == 0) {
-			tb_info("Unlock: found %d waiting sharers\n", RWL->sharers->nb);
+			//			tb_info("Unlock: found %d waiting sharers\n", RWL->sharers->nb);
 			while(RWL->sharers->nb >0) {
 				L = RWL->sharers->first->lock;
-				tb_info("Unlock: wanabee locker[%d] is a %s\n",L->tid, _lock_mode[L->access]);
+				//				tb_info("Unlock: wanabee locker[%d] is a %s\n",L->tid, _lock_mode[L->access]);
 				if(L->access == TB_RLOCK) {
 					if( RWL->writer_tid == 0) {
 						L = _share_list_shift(RWL->sharers);
-						tb_info("Unlock: awake a Rlocker (%d)\n",L->tid);
+						//						tb_info("Unlock: awake a Rlocker (%d)\n",L->tid);
 						pthread_mutex_lock(&L->mtx);
 						pthread_cond_signal(&L->cond);
 						_share_list_push(RWL->lockers, L);
 						pthread_mutex_unlock(&L->mtx);
 						if(tb_errorlevel >= TB_NOTICE) dump_share_list(RWL);
 					} else {
-						tb_info("Unlock: can't awake %d (%d Wlocks)\n", L->tid, RWL->writer_tid);
+						//						tb_info("Unlock: can't awake %d (%d Wlocks)\n", L->tid, RWL->writer_tid);
 						break;
 					}
 				} else { // exclusive access requested
 					if( RWL->writer_tid == 0 && RWL->lockers->nb == 0) {
 						L = _share_list_shift(RWL->sharers);
-						tb_info("Unlock: awake a Wlocker (%d)\n",L->tid);
+						//						tb_info("Unlock: awake a Wlocker (%d)\n",L->tid);
 						pthread_mutex_lock(&L->mtx);
 						pthread_cond_signal(&L->cond);
 						_share_list_push(RWL->lockers, L);
@@ -375,7 +376,7 @@ int tb_Unlock(void * O) {
 						pthread_mutex_unlock(&L->mtx);
 						if(tb_errorlevel >= TB_NOTICE) dump_share_list(RWL);
 					} else {
-						tb_info("Unlock: can't awake %d (%d lockers)\n", L->tid, RWL->lockers->nb);
+						//						tb_info("Unlock: can't awake %d (%d lockers)\n", L->tid, RWL->lockers->nb);
 						break;
 					}
 				}
@@ -392,7 +393,7 @@ int tb_Unlock(void * O) {
 			pthread_mutex_unlock(&RWL->mlock);
 		}
 	} else {
-		tb_info("Unlock: RWL[%S] not found\n", K);
+		tb_error("Unlock: RWL[%S] not found\n", K);
 		abort();
 	}
 	tb_Free(K);

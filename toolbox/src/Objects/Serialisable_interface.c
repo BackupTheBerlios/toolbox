@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 2; indent-tabs-mode: t; c-basic-offset: 2 -*- */
 //======================================================
-// $Id: Serialisable_interface.c,v 1.2 2004/05/14 15:22:38 plg Exp $
+// $Id: Serialisable_interface.c,v 1.3 2005/05/12 21:51:51 plg Exp $
 //======================================================
 
 // created on Thu Aug  1 15:23:25 2002
@@ -38,6 +38,10 @@
 int IFACE_SERIALISABLE;
 int OM_MARSHALL;
 int OM_UNMARSHALL;
+
+int OM_TOTLV;
+int OM_FROMTLV;
+
 pthread_once_t __serialisable_build_once = PTHREAD_ONCE_INIT;   
 
 void build_serialisable_once() {
@@ -45,6 +49,10 @@ void build_serialisable_once() {
 
 	OM_MARSHALL    = tb_registerNew_InterfaceMethod("Marshall",   IFACE_SERIALISABLE);
 	OM_UNMARSHALL  = tb_registerNew_InterfaceMethod("UnMarshall", IFACE_SERIALISABLE);
+
+	OM_TOTLV       = tb_registerNew_InterfaceMethod("toTlv",      IFACE_SERIALISABLE);
+	OM_FROMTLV     = tb_registerNew_InterfaceMethod("fromTlv",    IFACE_SERIALISABLE);
+
 }
 
 /**
@@ -103,23 +111,63 @@ tb_Object_t tb_unMarshall(String_t marshalled) {
 tb_Object_t tb_XmlunMarshall(XmlElt_t xml_element) {
 	tb_Object_t (*p)(XmlElt_t) = NULL;
  
-	if( streq(S2sz(XELT_getName(xml_element)),        "string")) {
+	if(tb_StrEQ(XELT_getName(xml_element),        "string")) {
 		p = __getMethod(TB_STRING, OM_UNMARSHALL);
-	} else if( streq(S2sz(XELT_getName(xml_element)), "int")) {
+	} else if(tb_StrEQ(XELT_getName(xml_element), "int")) {
 		p = __getMethod(TB_NUM, OM_UNMARSHALL);
-	} else if( streq(S2sz(XELT_getName(xml_element)), "base64")) {
+	} else if(tb_StrEQ(XELT_getName(xml_element), "boolean")) {
+		p = __getMethod(TB_BOOL, OM_UNMARSHALL);
+	} else if(tb_StrEQ(XELT_getName(xml_element), "base64")) {
 		p = __getMethod(TB_RAW, OM_UNMARSHALL);
-	} else if( streq(S2sz(XELT_getName(xml_element)), "dateTime.iso8601")) {
+	} else if(tb_StrEQ(XELT_getName(xml_element), "dateTime.iso8601")) {
 		p = __getMethod(TB_DATE, OM_UNMARSHALL);
-	} else if( streq(S2sz(XELT_getName(xml_element)), "array")) {
+	} else if(tb_StrEQ(XELT_getName(xml_element), "date")) {
+		p = __getMethod(TB_DATE, OM_UNMARSHALL);
+	} else if(tb_StrEQ(XELT_getName(xml_element), "array")) {
 		p = __getMethod(TB_VECTOR, OM_UNMARSHALL);
-	} else if( streq(S2sz(XELT_getName(xml_element)), "struct")) {
+	} else if(tb_StrEQ(XELT_getName(xml_element), "struct")) {
 		p = __getMethod(TB_HASH, OM_UNMARSHALL);
+	} else if(tb_StrEQ(XELT_getName(xml_element), "any")) {
+		return tb_Pointer(NULL, NULL);
+	} else {
+		// Try to find a regular object's method
+		int Cid = tb_getClassIdByName(tb_toStr(XELT_getName(xml_element)));
+		if(Cid != -1) {
+			p = __getMethod(Cid, OM_UNMARSHALL);
 	} else {
 		tb_warn("unmarshalling pb (unknown type <%s>)\n", S2sz(XELT_getName(xml_element)));
+	}
 	}
 	if(p) return p(xml_element);
 
 	return NULL;
 }
 
+
+Tlv_t tb_toTlv(tb_Object_t O) {
+	if( __VALID_IFACE(tb_isA(O), IFACE_SERIALISABLE)) {
+		void *p = tb_getMethod(O, OM_TOTLV);
+		if(p) {
+			return ((Tlv_t(*)(tb_Object_t))p)(O);
+		}
+	} 
+	tb_error("tb_toTlv: tb_toTlv not implemented for class <%s>\n", 
+					 tb_nameOf(tb_isA(O)));
+	return NULL;
+}
+
+tb_Object_t tb_fromTlv(Tlv_t T) {
+	if(T==NULL) return NULL;
+	int type = Tlv_getType(T); //*(int*)T;
+	//	tb_warn("tb_fromTlv: %p <%s>\n", T,  tb_nameOf(type));
+	if(__VALID_IFACE(type, IFACE_SERIALISABLE)) {
+		void *p = __getMethod(type, OM_FROMTLV);
+		if(p) {
+			return ((tb_Object_t(*)(Tlv_t))p)(T);
+		}
+	} 
+	tb_error("tb_fromTlv not implemented for class <%s>\n", 
+					 tb_nameOf(type));
+	//	tb_hexdump(T, Tlv_getFullLen(T));
+	return NULL;
+}

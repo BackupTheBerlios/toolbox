@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 2; indent-tabs-mode: t; c-basic-offset: 2 -*- */
 //======================================================
-// $Id: XmlRpc.c,v 1.2 2004/05/24 16:37:53 plg Exp $
+// $Id: XmlRpc.c,v 1.3 2005/05/12 21:53:10 plg Exp $
 //======================================================
 
 // created on Tue May 11 23:37:45 2004 by Paul Gatille <paul.gatille\@free.fr>
@@ -38,6 +38,7 @@
 #include "XmlRpc.h"
 #include "XmlRpc_impl.h"
 #include "tb_ClassBuilder.h"
+#include "Bool.h"
 
 #include "Raw.h"
 /* 
@@ -183,23 +184,30 @@ void * XRpc_getMethod(XmlRpc_t This, void *methodName) {
 }
 
 
+// fixme: mutulize with Xrpc_getResponseParamType
 int         XRpc_getParamType            (XmlElt_t Elt) {
 	//<param[In|InOut|Out] type="t"/>
 	String_t Type = XELT_getAttribute(Elt, "type");
 	if(tb_StrEQ(Type,        "string")) {
 		return TB_STRING;
 	} else if(tb_StrEQ(Type, "int") ||
+						tb_StrEQ(Type, "boolean")  ||
 						tb_StrEQ(Type, "i4") ) {
 		return TB_NUM;
-		//	} else if(tb_StrEQ(XELT_getName(Xe), "boolean")) {
-		//	} else if(tb_StrEQ(XELT_getName(Xe), "double")) {
-		//	} else if(tb_StrEQ(XELT_getName(Xe), "dateTime.iso8601")) {
+	} else if(tb_StrEQ(Type, "boolean")) {
+		return TB_BOOL;
+	} else if(tb_StrEQ(Type, "double")) {
+		return TB_NUM;
+	} else if(tb_StrEQ(Type, "dateTime.iso8601")) {
+		return TB_DATE;
 	} else if(tb_StrEQ(Type, "base64")) {
 		return TB_RAW;
 	} else if(tb_StrEQ(Type, "struct")) {
-		return TB_VECTOR;
-	} else if(tb_StrEQ(Type, "array")) {
 		return TB_HASH;
+	} else if(tb_StrEQ(Type, "array")) {
+		return TB_VECTOR;
+	} else if(tb_StrEQ(Type, "any")) {
+		return TB_OBJECT; // *not* XmlRpc compliant (tbx extension)
 	} 
 	return -1;
 }
@@ -227,16 +235,21 @@ int XRpc_getResponseParamType(XmlElt_t Elt) {
 	} else if(tb_StrEQ(Type, "int") ||
 						tb_StrEQ(Type, "i4") ) {
 		return TB_NUM;
-		//	} else if(tb_StrEQ(XELT_getName(Xe), "boolean")) {
-		//	} else if(tb_StrEQ(XELT_getName(Xe), "double")) {
-		//	} else if(tb_StrEQ(XELT_getName(Xe), "dateTime.iso8601")) {
+	} else if(tb_StrEQ(Type, "boolean")) {
+		return TB_BOOL;
+	} else if(tb_StrEQ(Type, "double")) {
+		return TB_NUM;
+	} else if(tb_StrEQ(Type, "dateTime.iso8601")) {
+		return TB_DATE;
 	} else if(tb_StrEQ(Type, "base64")) {
 		return TB_RAW;
 	} else if(tb_StrEQ(Type, "struct")) {
-		return TB_VECTOR;
-	} else if(tb_StrEQ(Type, "array")) {
 		return TB_HASH;
+	} else if(tb_StrEQ(Type, "array")) {
+		return TB_VECTOR;
 	} 
+	tb_warn("unkown type: <%S>\n", Type);
+
 	return -1;
 }
 
@@ -255,6 +268,8 @@ int         XRpc_getParamStyle           (XmlElt_t Elt) {
 
 
 retcode_t    XRpc_unMarshallAndMerge      (tb_Object_t Target, XmlElt_t Elt) {
+	tb_warn("entering\n");
+
 	int ret = TB_KO;
 	switch(tb_isA(Target)) {
 	case TB_STRING:
@@ -262,13 +277,17 @@ retcode_t    XRpc_unMarshallAndMerge      (tb_Object_t Target, XmlElt_t Elt) {
 			Vector_t V;
 			if((V = XELT_getChildren(Elt)) != NULL &&
 				 tb_getSize(V) >0) {
+				String_t tmp = XELT_getText(tb_Get(V, 0));
+				if(tmp) {
 				tb_Clear(Target);
-				tb_StrAdd(tb_Clear(Target), -1, "%S", XELT_getText(tb_Get(V, 0)));
+					tb_StrAdd(tb_Clear(Target), -1, "%S", tmp);
+				}
 				ret = TB_OK;
 			}
 		}
 		break;
 	case TB_NUM:
+		//	case TB_DOUBLE:
 		{
 			Vector_t V;
 			if((V = XELT_getChildren(Elt)) != NULL &&
@@ -291,8 +310,17 @@ retcode_t    XRpc_unMarshallAndMerge      (tb_Object_t Target, XmlElt_t Elt) {
 			}
 		}
 		break;
+	case TB_BOOL:
+		{
+			Vector_t V;
+			if((V = XELT_getChildren(Elt)) != NULL &&
+				 tb_getSize(V) >0) {
+				Bool_Set(Target, tb_toInt(XELT_getText(tb_Get(V, 0))));
+				ret = TB_OK;
+			}
+		}
+		break;
 		/*
-	case TB_DOUBLE:
 	case TB_DATE:
 	case TB_BOOL:
 		//NYI
@@ -313,10 +341,11 @@ retcode_t    XRpc_unMarshallAndMerge      (tb_Object_t Target, XmlElt_t Elt) {
 		break;
 	case TB_HASH:
 		{
+			tb_error("XRpc_unMarshallAndMerge: is a H\n");
 			Vector_t V;
 			if((V = XELT_getChildren(Elt)) != NULL &&
 				 tb_getSize(V) >0) {
-				Hash_t New = tb_unMarshall(Elt);
+				Hash_t New = tb_XmlunMarshall(Elt);
 				Iterator_t It = tb_Iterator(New);
 				if(It) {
 					tb_Clear(Target);
@@ -330,6 +359,8 @@ retcode_t    XRpc_unMarshallAndMerge      (tb_Object_t Target, XmlElt_t Elt) {
 			}
 		}
 		break;
+	default:
+		tb_error("XRpc_unMarshallAndMerge: unknown type\n");
 	}
 
 	return ret;

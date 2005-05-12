@@ -1,4 +1,4 @@
-// $Id: string_test.c,v 1.3 2004/07/01 21:45:25 plg Exp $
+// $Id: string_test.c,v 1.4 2005/05/12 21:52:41 plg Exp $
 #ifdef __BUILD
 #undef __BUILD
 #endif
@@ -12,12 +12,13 @@
 #include <stdio.h>
 #include <string.h>
 
-#define TB_MEM_DEBUG
+//#define TB_MEM_DEBUG
 #include "Toolbox.h"
 
 #include "Objects.h"
+#include "Tlv.h"
 
-
+#include "Serialisable_interface.h"
 
 String_t mytrim(String_t S);
 
@@ -39,7 +40,96 @@ int main(int argc, char **argv) {
 	Hash_t H;
 	Num_t N;
 
+
+	if(1) {
+		String_t test = tb_loadFile("soap.xml");
+		String_t zipped = tb_String(NULL);
+		if(tb_Crunch(test, zipped) == TB_OK) {
+			tb_saveFile("soap.gz", zipped);
+		}
+
+		String_t unzipped = tb_String(NULL);
+		int ret;
+		if((ret = tb_Decrunch(zipped, unzipped)) == TB_OK) {
+			tb_saveFile("unzipped", unzipped);
+		} else {
+			tb_warn("unzipping failed (%d)", ret);
+		}
+
+
+		unzipped = tb_String(NULL);
+		zipped = tb_loadFile("chk.gz");
+		if((ret = tb_Decrunch(zipped, unzipped)) == TB_OK) {
+			tb_saveFile("unzipped2", unzipped);
+		} else {
+			tb_warn("unzipping failed (%d)", ret);
+		}
+
+		tb_Free(test);
+		tb_Free(zipped);
+		return 0;
+	}
+
+
 	//	tb_errorlevel = TB_INFO;
+
+	printf("sizeof int=%d\n", sizeof(int));
+	printf("sizeof long=%d\n", sizeof(long));
+	printf("sizeof unsigned int=%d\n", sizeof(unsigned int));
+
+/* 	if(1) { */
+/* 		Hash_t Z, H = tb_Hash(); */
+/* 		Hash_t X = tb_Hash(); */
+/* 		tb_Insert(X, tb_String("pim"), "pam"); */
+/* 		tb_Insert(H, tb_String("totoro"), "voisin"); */
+/* 		tb_Insert(H, tb_String("rintintin"), "cleb"); */
+/* 		tb_Insert(H, tb_Num(42), "routard"); */
+/* 		tb_Insert(H, X, "inside"); */
+/* 		Tlv_t T = tb_toTlv(H); */
+/* 		tb_hexdump(T, Tlv_getLen(T)+(sizeof(int)*2)); */
+/* 		Z = tb_fromTlv(T); */
+/* 		tb_Dump(Z); */
+
+/* 		exit(0); */
+/* 	} */
+
+	if(1) {
+
+		String_t S = tb_String("tutu ~+AccountId+~  123456789");
+		if(tb_matchRegex(S, "~[+]AccountId[+]~", PCRE_DOTALL) == TB_OK) {
+			tb_warn("matched\n");
+		} else {
+			tb_warn("not matched\n");
+		}
+
+	//	return 0;
+	}
+
+
+
+	if(1) {
+
+		String_t S = tb_String("123456789");
+		tb_RawAdd(S, 5, -1, "abcde");
+		tb_hexdump(tb_toStr(S), tb_getSize(S));
+
+	}
+
+
+
+
+
+	VA = tb_Vector();
+	S = tb_String("out3.4=off");
+	rc = tb_getRegex(VA, 
+									 S, 
+									 "out(\\d+)[.](\\d+)=(\\S+)",
+									 PCRE_CASELESS|PCRE_MULTI);
+
+	tb_profile("%d subtrings matched\n", rc);
+	tb_Dump(VA);
+
+//	exit(0);
 
 
 	fprintf(stderr, "%d:%u:%d\n", UINT_MAX, UINT_MAX, TB_ERR);
@@ -320,9 +410,9 @@ int main(int argc, char **argv) {
 
 	
 	if(tb_matchRegex(S, "t\\w+t", 0)) {
-		tb_trace(TB_WARN, "found 't\\w+t' in string \n");
+		tb_warn("found 't\\w+t' in string \n");
 	} else {
-		tb_trace(TB_WARN, "not found 't\\w+t' in string :(\n");
+		tb_warn("not found 't\\w+t' in string :(\n");
 		exit(1);
 	}
 
@@ -440,8 +530,25 @@ int main(int argc, char **argv) {
 
 	tb_Free(S);
 
+	String_t test = tb_loadFile("soap.xml");
+	String_t zipped = tb_String(NULL);
+	if(tb_Crunch(test, zipped) == TB_OK) {
+		tb_saveFile("soap.gz", zipped);
+	}
+
+	String_t unzipped = tb_String(NULL);
+	if(tb_Decrunch(zipped, unzipped) == TB_OK) {
+		tb_saveFile("unzipped", unzipped);
+	} else {
+		tb_warn("unzipping failed");
+	}
+
+	tb_Free(test);
+	tb_Free(zipped);
+
+
 	fm_Dump();
-	fm_dumpChunks();
+	//	fm_dumpChunks();
 	
 	return 0;
 }

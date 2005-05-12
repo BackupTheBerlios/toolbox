@@ -1,5 +1,5 @@
 //================================================================
-// $Id: Memory.h,v 1.2 2004/07/01 21:37:09 plg Exp $
+// $Id: Memory.h,v 1.3 2005/05/12 21:54:36 plg Exp $
 //================================================================
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -28,6 +28,7 @@ typedef struct mdbg *mdbg_t;
 void set_tb_mdbg(char *func, char *file, int line);
 mdbg_t get_tb_mdbg();
 
+char *fm_status(char *buffer, int len);
 
 extern int tb_memtrace;
 extern int tb_memdebug;
@@ -48,5 +49,6 @@ typedef struct mList_t * mList_t;
 
 void dbg_del_object(tb_Object_t O);
 void dbg_add_object(tb_Object_t O);
-
+void dbg_drop_object(tb_Object_t O);
+void dbg_recycle_object(tb_Object_t O);
 #endif

@@ -1,5 +1,5 @@
 //------------------------------------------------------------------
-// 	$Id: Socket.h,v 1.2 2004/07/01 21:37:18 plg Exp $
+// 	$Id: Socket.h,v 1.3 2005/05/12 21:54:36 plg Exp $
 //------------------------------------------------------------------
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -79,8 +79,11 @@ struct x25_err {
 
 
 struct sock_server {
-	int                spawn_method;           // fork or thread
+	int                spawn_method;           // fork or thread (OBSOLETE)
 	int                max_threads;             
+  int                cur_threads;
+  int                nb_cx;
+	time_t             last_cx;
   pthread_mutex_t  * nb_t_mtx; 
 	void             * callback;           
 	void             * args;              

@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 2; indent-tabs-mode: t; c-basic-offset: 2 -*- */
 //======================================================
-// $Id: Date_impl.h,v 1.2 2004/05/13 22:07:05 plg Exp $
+// $Id: Date_impl.h,v 1.3 2005/05/12 21:52:12 plg Exp $
 //======================================================
 
 // created on Sun May  9 15:48:00 2004 by Paul Gatille <paul.gatille@free.fr>
@@ -18,9 +18,10 @@
 #include "Scalars.h"
 
 struct Date_members {
+	char      iso;
   time_t    absolute;
   struct tm broken_down;
-	char      string[20];
+	char      string[50];
 };
 typedef struct Date_members * Date_members_t;
 

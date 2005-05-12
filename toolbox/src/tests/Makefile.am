@@ -2,6 +2,7 @@ INCLUDES = -I. -I$(top_srcdir)/include
 AM_CFLAGS   = @COMMON_CFLAGS@
 
 bin_PROGRAMS  = \
+	rpcbdg           \
 	string_test \
 	dict_test   \
 	hash_test   \
@@ -14,11 +15,25 @@ bin_PROGRAMS  = \
 	srv_test    \
 	xmlrpc_client    \
 	xmlrpc_server    \
+	rpc_server       \
+	rpc_client       \
 	date_test    \
 	marshall
 
 TESTS           = $(bin_PROGRAMS)
  
+rpc_server_SOURCES       = rpc_server.c
+rpc_server_LDADD         = ../libtbx.la
+rpc_server_LDFLAGS       = @ADD_LDFLAGS@ @ADD_BOOTSTRAP@ @ADD_LIBS@
+
+rpc_client_SOURCES       = rpc_client.c
+rpc_client_LDADD         = ../libtbx.la
+rpc_client_LDFLAGS       = @ADD_LDFLAGS@ @ADD_BOOTSTRAP@ @ADD_LIBS@
+
+rpcbdg_SOURCES       = rpcbridge.c
+rpcbdg_LDADD         = ../libtbx.la
+rpcbdg_LDFLAGS       = @ADD_LDFLAGS@ @ADD_BOOTSTRAP@ @ADD_LIBS@
+
 xmlrpc_client_SOURCES       = xmlrpc_client.c
 xmlrpc_client_LDADD         = ../libtbx.la
 xmlrpc_client_LDFLAGS       = @ADD_LDFLAGS@ @ADD_BOOTSTRAP@ @ADD_LIBS@

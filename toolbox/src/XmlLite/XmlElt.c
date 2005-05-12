@@ -1,5 +1,5 @@
 //======================================================
-// $Id: XmlElt.c,v 1.3 2004/07/01 21:46:37 plg Exp $
+// $Id: XmlElt.c,v 1.4 2005/05/12 21:53:10 plg Exp $
 //======================================================
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -130,22 +130,51 @@ XmlElt_t tb_XmlTextElt(XmlElt_t parent, char *text) {
 } 
 
 
+XmlElt_t tb_XmlCDataElt(XmlElt_t parent, char *text) {
+	tb_Object_t X;
+
+	pthread_once(&__class_registry_init_once, tb_classRegisterInit);
+
+	if(parent && XELT_getType(parent) != XELT_TYPE_NODE) {
+		tb_error("tb_XmlNodeElt: bad parent (adoption impossible)\n");
+		return NULL;
+	}
+
+	X        = tb_newParent(TB_XMLELT); 
+	X->isA   = TB_XMLELT;
+	X->members->instance = (xml_obj_t) tb_xcalloc(1, sizeof(struct xml_obj));
+
+	XXELT(X)->ElmType        = XELT_TYPE_CDATA;
+	if(text) {
+		XXELT(X)->Text         = _tb_dock(tb_String("%s", text));
+	} else {
+		XXELT(X)->Text         = _tb_dock(tb_String(NULL));
+	}
+	XXELT(X)->Parent         = parent;
+
+	if(parent) tb_Push(XELT_getChildren(parent), X);
+	if(fm->dbg) fm_addObject(X);
+
+	return X;
+} 
+
+
 XmlElt_t dbg_tb_xmlelt(char *func, char *file, int line,
-												int type, XmlElt_t parent, char *name, char **atts) {
+												int type, XmlElt_t parent, char *name, Hash_t Atts) {
 	set_tb_mdbg(func, file, line);
-	return tb_XmlElt(type, parent, name, atts);
+	return tb_XmlElt(type, parent, name, Atts);
 } 
 
 
 /** Xml element contructor
  * @ingroup XmlLite
  */
-XmlElt_t tb_XmlElt(int type, XmlElt_t parent, char *name, char **atts) {
+XmlElt_t tb_XmlElt(int type, XmlElt_t parent, char *name, Hash_t Attr) {
 	tb_Object_t X;
 
 	pthread_once(&__class_registry_init_once, tb_classRegisterInit);
 
-	if(type != XELT_TYPE_TEXT && type != XELT_TYPE_NODE) {
+	if(type != XELT_TYPE_TEXT && type != XELT_TYPE_NODE && type != XELT_TYPE_CDATA) {
 		tb_error("tb_XmlElt: bad element type\n");
 		return NULL;
 	}
@@ -160,20 +189,15 @@ XmlElt_t tb_XmlElt(int type, XmlElt_t parent, char *name, char **atts) {
 		XXELT(X)->Name       = _tb_dock(tb_String("%s", name));
 		XXELT(X)->Children   = _tb_dock(tb_Vector());
 	}
-	if(atts) {
-		XXELT(X)->Attributes = _tb_dock(tb_Hash());
+	if(Attr) {
+		XXELT(X)->Attributes = _tb_dock(Attr);
 	}
+
 	XElt(X)->Parent       = parent;
-	if(atts) {
+	if(Attr) {
 		if(parent) {
 			XXELT(X)->xml_space = XElt(parent)->xml_space; // use parent default scheme for spaces
 		} 
-		while(*atts) {
-			char *key, *value;
-			key   = (char *)*atts++;
-			value = (char *)*atts++;
-			tb_Replace(XXELT(X)->Attributes, tb_String("%s", value), key);
-		}
 		if(tb_Exists(XXELT(X)->Attributes, "xml:space")) { // xml:space policy redefined
 			if(streq(tb_toStr(XXELT(X)->Attributes, "xml:space"), "preserve")) {
 				XXELT(X)->xml_space = 1; // preserve spaces in inner nodes
@@ -467,4 +491,15 @@ int XELT_setText(XmlElt_t X, char *text) {
 
 
 
+XmlElt_t XELT_getFirstChild(XmlElt_t xml) {
+	Vector_t V = XELT_getChildren(xml);
+	if(V && tb_getSize(V) >0) {
+		return tb_Get(V,0);
+	}
+	return NULL;
+}
+
+String_t XELT_getTextChild(XmlElt_t xml) {
+	return XELT_getText(XELT_getFirstChild(xml));
+}
 

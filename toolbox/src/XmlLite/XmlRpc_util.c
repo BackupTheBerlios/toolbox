@@ -1,5 +1,5 @@
 //=======================================================
-// $Id: XmlRpc_util.c,v 1.6 2004/07/01 21:46:43 plg Exp $
+// $Id: XmlRpc_util.c,v 1.7 2005/05/12 21:53:10 plg Exp $
 //=======================================================
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -53,12 +53,16 @@
 
 #include <sys/socket.h> // for shutdown
 #include <stdio.h>
+#include <string.h>
+#include <errno.h>
 
 #include "Toolbox.h"
+#include "tb_ClassBuilder.h"
 #include "XmlRpc.h"
+#include "Pointer.h"
 
 static int  XRpc_callNative          (XmlRpc_t Xr, char *methodName, Vector_t argVector);
-static void XRpc_makeFaultResponse   (String_t Response, int fault);
+static void XRpc_makeFaultResponse   (String_t Response, int fault, char *faultstring);
 
 
 typedef int (*_p1__t)(tb_Object_t);
@@ -152,13 +156,18 @@ typedef int (*_p9__t)(tb_Object_t,tb_Object_t,tb_Object_t,
 
  * @ingroup Xmlrpc
  */
-int XRpc_sendCall(XmlRpc_t Xr, /*Uri_t Dest*/ Socket_t So, char *func, ...) {
+int XRpc_sendCall(XmlRpc_t Xr, Socket_t So, char *func, ...) {
 	int rc;
-	XmlDoc_t Sig         = XRpc_getSignature(Xr, func);
+	XmlDoc_t Sig;
+	
+	Sig = XRpc_getSignature(Xr, func);
 	if(Sig) {
-		Iterator_t It      = tb_Iterator(XELT_getChildren(XDOC_getRoot(Sig)));
-		if(It) {
+
+		Vector_t SigParams = XELT_getChildren(XDOC_getRoot(Sig));
+		int i, nb_args     = tb_getSize(SigParams);
+
 			va_list parms;
+
 			XmlDoc_t ResponseDoc = NULL;
 			XmlElt_t Response    = NULL;
 
@@ -169,110 +178,152 @@ int XRpc_sendCall(XmlRpc_t Xr, /*Uri_t Dest*/ Socket_t So, char *func, ...) {
 			tb_StrAdd(Request, -1, "  <methodName>%S</methodName>\n", XRpc_getMethodName(XDOC_getRoot(Sig)));
 			tb_StrAdd(Request, -1, "  <params>\n");
 		
-			do {
+		for(i=0; i<nb_args; i++) {
+
 				String_t Tmp;
+			XmlElt_t    SigParam    = tb_Get(SigParams, i);
 				tb_Object_t O = (tb_Object_t)va_arg(parms, tb_Object_t);
-				if(tb_valid(O, XRpc_getParamType(tb_Value(It)), __FUNCTION__)) {
-					int style = XRpc_getParamStyle(tb_Value(It));
+			int         type        = XRpc_getParamType(SigParam);
+			int         real_type   = tb_isA(O);
+			int         style       = XRpc_getParamStyle(SigParam);
+
+			char *dbg_style[] = {"XMLRPC_PARAM_IN", "XMLRPC_PARAM_INOUT", "XMLRPC_PARAM_OUT"};
+
+			tb_notice("type=%s(real:%s)/style=%s\n", tb_nameOf(type), tb_nameOf(tb_isA(O)), dbg_style[style]);
+
+			switch(style) {
+			case XMLRPC_PARAM_IN:
+			case XMLRPC_PARAM_INOUT:
+				{
+					// check if arg type match w/ signature
+					// allow TB_POINTER type when signature is <any>
+					if((type == TB_OBJECT && real_type == TB_POINTER) || tb_valid(O, type, __FUNCTION__)) {
 
 					// serialise all parameters
+						if(type == TB_OBJECT && real_type == TB_POINTER) {
+							Tmp = tb_String("<any/>"); // allow late typing
+						} else {
 					tb_chomp(Tmp = tb_Marshall(O));
+						}
 					tb_StrAdd(Request, -1, "    <param><value>%S</value></param>\n", Tmp);
 					tb_Free(Tmp);
 
-					// save Out parameters for storing return values
-					if(style == XMLRPC_PARAM_INOUT || style == XMLRPC_PARAM_OUT) {
-						tb_Push(outVector, tb_Alias(O));
-					}
-
 				} else {
-					tb_Free(outVector);
-					tb_Free(It);
+						tb_error("arg type mismatch\n");
 					tb_Free(Request);
 					return XMLRPC_FAULT_TYPE_MISMATCH;
 				}
-			} while(tb_Next(It));
-			tb_Free(It);
+
+				} break;
+			case XMLRPC_PARAM_OUT: // param out are not sent
+				{
+				} break;
+			}	
+		}
 		
 			tb_StrAdd(Request, -1, "  </params>\n");
 			tb_StrAdd(Request, -1, "</methodCall>\n");
 			
 			if(tb_errorlevel >TB_WARN) {fprintf(stderr, "%s", tb_toStr(Request));}
 
-			//		So = Uri_openIOChannel(Dest);
 			rc = tb_writeSock(So, tb_toStr(Request));
 			tb_Free(Request);
 
 			if(rc != TB_ERR && rc != TB_KO) {
 				String_t Reply = tb_String(NULL);
+			int retcode;
 				
 				shutdown(tb_getSockFD(So), SHUT_WR); // cut write uplink
-				while(tb_readSock(So, Reply, MAX_BUFFER) >0);
-
+			while((retcode = tb_readSock(So, Reply, MAX_BUFFER)) >0);
+			if(retcode <0) {
+				tb_warn("Xrpc_sendCall: read reply failed (%s)\n", strerror(errno));
+			}
 				ResponseDoc = tb_XmlDoc(tb_toStr(Reply));
 				if(ResponseDoc != NULL) {
 					Response    = XDOC_getRoot(ResponseDoc);
 				}
+
+			if(tb_errorlevel >TB_WARN) {
+				fprintf(stderr, "XRpc_sendCall: got reply<\n%s\n>\n", tb_toStr(Reply)	); 
+				tb_hexdump(tb_toStr(Reply), tb_getSize(Reply));
+			}
+
 				tb_Free(Reply);
 
 				if(Response && tb_StrEQ(XELT_getName(Response), "methodResponse")) {
-					Vector_t Params = XELT_getChildren(tb_Get(XELT_getChildren(Response), 0));
+				Vector_t Params = XELT_getChildren(XELT_getFirstChild(Response));
 
-					if(tb_StrEQ(XELT_getName(tb_Get(Params,0)), "fault")) {
-						Hash_t Rez = tb_unMarshall(tb_Get(XELT_getChildren(tb_Get(Params,0)), 0));
+				if(tb_StrEQ(XELT_getName(XELT_getFirstChild(Response)), "fault")) {
+					Hash_t Rez = tb_XmlunMarshall(tb_Get(Params, 0));
 						int fault = tb_toInt(Rez, "faultCode");
 						tb_Free(Rez);
 						tb_Free(ResponseDoc);
-						tb_Free(Params);
+					tb_warn("got a fault response\n");
+
 						return fault;
 
-					} else if(tb_getSize(Params) == tb_getSize(outVector)) {
-						Iterator_t outIt   = tb_Iterator(outVector);
-						Iterator_t paramIt = tb_Iterator(Params);
-						
-						if(outIt && paramIt) {
-							do {
-								// check type
-								// dig inside <param> -> <value> --> <type>
-								XmlElt_t Xe = tb_Get(XELT_getChildren(tb_Get(XELT_getChildren(tb_Value(paramIt)), 0)),0);
+				} else if(tb_StrEQ(XELT_getName(XELT_getFirstChild(Response)), "params")) {
 
-								if(tb_valid(tb_Value(outIt), XRpc_getResponseParamType(Xe), __FUNCTION__)) {
-									// unMarshall param and affect contents into outVector[n]'s object
-									XRpc_unMarshallAndMerge(tb_Value(outIt), Xe);
+					Vector_t Values =  XELT_getChildren(XELT_getFirstChild(Response));
+					Iterator_t It   = tb_Iterator(Values);
+
+					va_start(parms, func);
+
+					for(i=0; i<nb_args; i++) {
+
+						XmlElt_t    SigParam    = tb_Get(SigParams, i);
+						int         style       = XRpc_getParamStyle(SigParam);
+						tb_Object_t Arg         = (tb_Object_t)va_arg(parms, tb_Object_t);
+
+						switch(style) {
+						case XMLRPC_PARAM_IN: // <in> params are not sent back
+							tb_notice("arg[%d] IN: skipped\n", i);
+							break;
+						case XMLRPC_PARAM_INOUT:
+						case XMLRPC_PARAM_OUT:
+							{
+
+								tb_notice("arg[%d] OUT/INOUT: need merge (%s)\n", i, tb_nameOf(tb_isA(Arg)));
+
+								XmlElt_t    Xe  = XELT_getFirstChild(XELT_getFirstChild(tb_Value(It)));
+
+								if(tb_isA(Arg) == TB_POINTER) { // requiered type == 'any'
+									tb_Object_t O = tb_XmlunMarshall(Xe);
+									Pointer_ctor(Arg, O, NULL);
+								} else if(tb_valid(Arg, XRpc_getResponseParamType(Xe), __FUNCTION__)) {
+									// unMarshall param and affect contents into arg[n]
+									XRpc_unMarshallAndMerge(Arg, Xe);
 								} else {
 									tb_Free(ResponseDoc);
-									tb_Free(outIt);
-									tb_Free(paramIt);
+									tb_Free(It);
 									tb_Free(outVector);
 									return XMLRPC_FAULT_TYPE_MISMATCH;
 								}
-							} while(tb_Next(outIt) && tb_Next(paramIt));
-							tb_Free(outIt);
-							tb_Free(paramIt);
+								tb_Next(It);
+							} break;
+ 
+						}
+
+						tb_Free(It);
 							tb_Free(ResponseDoc);
-							tb_Free(outVector);
 							return TB_OK;
 
+					}
+
 						} else {
-							tb_Free(ResponseDoc);
 							tb_Free(outVector);
-							if(outIt) tb_Free(outIt);
-							if(paramIt) tb_Free(paramIt);
-							return XMLRPC_FAULT_BAD_RESPONSE;
-						}
+					return XMLRPC_FAULT_BAD_RESPONSE; // invalid number of args
 					}
 				} else {
 					tb_Free(outVector);
-					return XMLRPC_FAULT_NOT_RESPONDING;
+					return XMLRPC_FAULT_BAD_RESPONSE; // invalid number of args
 				}
 			} else {
-				tb_Free(outVector);
 				return XMLRPC_FAULT_NOT_RESPONDING;
 			}
 		} else {
 			tb_warn("bad signature\n");
 		}
-	} 
 	return XMLRPC_FAULT_NO_SUCH_CALL;
 }
 
@@ -317,7 +368,7 @@ void XRpc_receiveCall(Socket_t So) {
 
 	if(tb_getSize(Request) == 0) {
 		tb_Free(Request);
-		XRpc_makeFaultResponse(Reply, XMLRPC_FAULT_NO_SUCH_CALL);
+		XRpc_makeFaultResponse(Reply, XMLRPC_FAULT_NO_SUCH_CALL, "No such method");
 		goto send_reply;
 	}
 
@@ -325,78 +376,148 @@ void XRpc_receiveCall(Socket_t So) {
 	tb_Free(Request);
 
 	if(QueryDoc == NULL) {
-		XRpc_makeFaultResponse(Reply, XMLRPC_FAULT_NO_SUCH_CALL);
+		XRpc_makeFaultResponse(Reply, XMLRPC_FAULT_NO_SUCH_CALL, "No such method");
 		goto send_reply;
 	}
 
 	if((Query      = XDOC_getRoot(QueryDoc)) == NULL) {
 		tb_Free(QueryDoc);
-		XRpc_makeFaultResponse(Reply, XMLRPC_FAULT_NO_SUCH_CALL);
+		XRpc_makeFaultResponse(Reply, XMLRPC_FAULT_NO_SUCH_CALL, "No such method");
 		goto send_reply;
 	}
 	if((methodName = XRpc_getQueryMethodName(Query)) == NULL) {
 		tb_Free(QueryDoc);
-		XRpc_makeFaultResponse(Reply, XMLRPC_FAULT_NO_SUCH_CALL);
+		XRpc_makeFaultResponse(Reply, XMLRPC_FAULT_NO_SUCH_CALL, "No such method");
 		goto send_reply;
 	}
 
 	Sig        = XRpc_getSignature(Xr, tb_toStr(methodName));
 
+/* <methodCall> */
+/*   <methodName>facade.getValue</methodName> */
+/*   <params> */
+/*     <param><value><int>5</int></value></param> */
+/*     <param><value><int>6</int></value></param> */
+/*     <param><value><string>sys.net.ip.route.Routes2</string></value></param> */
+/*     <param><value><any/></value></param> */
+/*     <param><value><int/></value></param> */
+/*   </params> */
+/* </methodCall> */
+
 	if(Sig) {
-		Iterator_t SigParamIt   = tb_Iterator(XELT_getChildren(XDOC_getRoot(Sig)));
-		Vector_t   Params       = XELT_getChildren(tb_Get(XELT_getChildren(Query), 1));
-		Iterator_t QueryParamIt = tb_Iterator(Params);
-		int rc;
-		if(SigParamIt && QueryParamIt &&
-			 tb_getSize(SigParamIt) == tb_getSize(QueryParamIt)) {
 
 			argVector = tb_Vector();
-			do {
-				//<param><value><string>voila</string></value> : must dig from <param> to <string>
-				XmlElt_t Xe = tb_Get(XELT_getChildren(tb_Get(XELT_getChildren(tb_Value(QueryParamIt)),0)),0);
-				tb_Object_t O = tb_XmlunMarshall(Xe);
-				if(tb_valid(O, XRpc_getParamType(tb_Value(SigParamIt)), __FUNCTION__)) {
+
+		Vector_t   SigParams     = XELT_getChildren(XDOC_getRoot(Sig));
+		int        i, nb_args    = tb_getSize(SigParams);
+		Vector_t   QueryParams   = XELT_getChildren(tb_Get(XELT_getChildren(Query), 1));
+		Iterator_t QueryParamsIt = tb_Iterator(QueryParams);
+
+		
+		for(i=0;i<nb_args; i++) {
+
+			XmlElt_t    SigParam    = tb_Get(SigParams, i);
+			int         type        = XRpc_getParamType(SigParam);
+			int         mode        = XRpc_getParamStyle(SigParam);
+			tb_Object_t O;
+
+			tb_notice("arg[%d] : %s : %d\n", i, tb_nameOf(type), mode);
+
+			switch(mode) {
+			case XMLRPC_PARAM_IN:
+			case XMLRPC_PARAM_INOUT:
+				{
+					XmlElt_t    Xe = XELT_getFirstChild(XELT_getFirstChild(tb_Value(QueryParamsIt)));
+
+					if(type == TB_STRING) { // <string> </string> tags are optionnals :<
+						XmlElt_t Xe2 = XELT_getFirstChild(Xe);
+						if(Xe2 && XELT_getType(Xe2) == XELT_TYPE_NODE && XELT_getName(Xe2) != NULL) {
+							if(tb_StrEQ(XELT_getName(Xe2), "string")) {
+								O = tb_XmlunMarshall(Xe2);
+							} else {
+								O = XELT_getText(XELT_getFirstChild(Xe));
+							}
+						} else {
+							O = XELT_getText(XELT_getFirstChild(Xe));
+						}
+					} else {
+						O = tb_XmlunMarshall(Xe);
+					}
+
+					if(tb_valid(O, type, __FUNCTION__)) {
 					tb_Push(argVector, O);
+						tb_notice("pushed arg %s in argVector\n", tb_nameOf(tb_isA(O)));
+					} else {
+						tb_error("invalid parameter type (waiting for a %s)\n", tb_nameOf(type));
+						tb_Free(O);
 				}
-			} while(tb_Next(SigParamIt) && tb_Next(QueryParamIt));
-			tb_Free(QueryParamIt);
-			// Not freeing SigParamIt at this point 
+
+				} break;
+			case XMLRPC_PARAM_OUT: // out parms are not transmitted
+				{
+					void *p = __getMethod(type, OM_NEW);
+					tb_Object_t Tmp = NULL;
+					if(p != NULL) {
+						Tmp = ((tb_Object_t (*)())p)();
 		}
+					tb_Push(argVector, Tmp);
+					tb_notice("created a new %s in argVector\n", tb_nameOf(type));
+				}
+			}
+
+		}
+
 
 		tb_info("will call native\n");
 
 		rc = XRpc_callNative(Xr, tb_toStr(methodName), argVector);
 
+		tb_info("native rc = %d\n", rc);
+
 		if(rc == TB_OK) {
 			Iterator_t argIt = tb_Iterator(argVector);
-			tb_First(SigParamIt);
-			if(SigParamIt && argIt) {
+
+			if(argIt) {
 				String_t Tmp;
 				tb_StrAdd(Reply, -1, "  <params>\n");
 
-				do {
-					int style = XRpc_getParamStyle(tb_Value(SigParamIt));
-				
-					if(style == XMLRPC_PARAM_INOUT || style == XMLRPC_PARAM_OUT) {
+				for(i=0; i<nb_args; i++) {
+					XmlElt_t    SigParam    = tb_Get(SigParams, i);
+					int         type        = XRpc_getParamType(SigParam);
+					int         mode        = XRpc_getParamStyle(SigParam);
+
+					switch(mode) {
+					case XMLRPC_PARAM_OUT:
+					case XMLRPC_PARAM_INOUT:
+						{
+							if(type == TB_OBJECT) {
+								tb_StrAdd(Reply, -1, "    <param><value>%S</value></param>\n", 
+													Tmp = tb_Marshall(P2p(tb_Value(argIt))));
+							} else {
 						tb_StrAdd(Reply, -1, "    <param><value>%S</value></param>\n", 
 											Tmp = tb_Marshall(tb_Value(argIt)));
+							}
 						tb_Free(Tmp);
+							tb_Next(argIt);
+						} break;
+					case XMLRPC_PARAM_IN:
+						tb_Next(argIt);
+						break;
+					}
+
 					} 
 
-				} while(tb_Next(SigParamIt) && tb_Next(argIt));
 				tb_StrAdd(Reply, -1, "  </params>\n</methodResponse>");
 				tb_Free(argIt);
-				tb_Free(SigParamIt);
 				if(argVector) tb_Free(argVector);
 			}
 		} else {
-			XRpc_makeFaultResponse(Reply, rc);
-			tb_Free(SigParamIt);
+			XRpc_makeFaultResponse(Reply, rc, "remote procedure error code");
 			if(argVector) tb_Free(argVector);
 		}
 	} else {
 		tb_warn("Sig not found\n");
-		XRpc_makeFaultResponse(Reply, XMLRPC_FAULT_NO_SUCH_CALL);
+		XRpc_makeFaultResponse(Reply, XMLRPC_FAULT_NO_SUCH_CALL, "no such method");
 	}
 	tb_Free(QueryDoc);
 
@@ -413,7 +534,7 @@ void XRpc_receiveCall(Socket_t So) {
 }
 
 
-static void XRpc_makeFaultResponse(String_t Response, int fault) {
+static void XRpc_makeFaultResponse(String_t Response, int fault, char *faultstring) {
 	tb_Clear(Response);
 	tb_StrAdd(Response, -1, "%s", "<?xml version=\"1.0\"?>\n");
 	tb_StrAdd(Response, -1,    "<methodResponse>\n");
@@ -421,11 +542,11 @@ static void XRpc_makeFaultResponse(String_t Response, int fault) {
 	tb_StrAdd(Response, -1,    "    <struct>\n");
 	tb_StrAdd(Response, -1,    "      <member>\n");
 	tb_StrAdd(Response, -1,    "        <name>faultCode</name>\n");
-	tb_StrAdd(Response, -1,    "        <value><int>%d</int></value>\n");
+	tb_StrAdd(Response, -1,    "        <value><int>%d</int></value>\n", fault);
 	tb_StrAdd(Response, -1,    "      </member>\n");
 	tb_StrAdd(Response, -1,    "      <member>\n");
 	tb_StrAdd(Response, -1,    "        <name>faultString</name>\n");
-	tb_StrAdd(Response, -1,    "        <value><string>remote function error</string></value>\n");
+	tb_StrAdd(Response, -1,    "        <value><string>%s</string></value>\n", faultstring);
 	tb_StrAdd(Response, -1,    "      </member>\n");
 	tb_StrAdd(Response, -1,    "    </struct>\n");
 	tb_StrAdd(Response, -1,    "  </fault>\n");
@@ -435,25 +556,31 @@ static void XRpc_makeFaultResponse(String_t Response, int fault) {
 
 static int XRpc_callNative(XmlRpc_t Xr, char *methodName, Vector_t argVector) {
 	int rc = -1;
+	void *p = XRpc_getMethod(Xr, methodName);
+	
+	tb_notice("native <%s/%p> get called with %d args\n", 
+						methodName, 
+						p,
+						tb_getSize(argVector));
 
 	switch(tb_getSize(argVector)) {
 	case 0:
 	case 1: 
 		{
-			_p1__t _p1 = (_p1__t)XRpc_getMethod(Xr, methodName);
+			_p1__t _p1 = (_p1__t)p;
 		rc = _p1(tb_Get(argVector,0));
 		}
 		break;
 	case 2:
 		{
-			_p2__t _p2 = (_p2__t)XRpc_getMethod(Xr, methodName);
+			_p2__t _p2 = (_p2__t)p;
 			rc = _p2(tb_Get(argVector,0),
 							 tb_Get(argVector,1));
 		}
 		break;
 	case 3:
 		{
-			_p3__t _p3 = (_p3__t)XRpc_getMethod(Xr, methodName);
+			_p3__t _p3 = (_p3__t)p;
 			rc = _p3(tb_Get(argVector,0),
 							 tb_Get(argVector,1),
 							 tb_Get(argVector,2));
@@ -461,7 +588,7 @@ static int XRpc_callNative(XmlRpc_t Xr, char *methodName, Vector_t argVector) {
 		break;
 	case 4:
 		{
-			_p4__t _p4 = (_p4__t)XRpc_getMethod(Xr, methodName);
+			_p4__t _p4 = (_p4__t)p;
 			rc = _p4(tb_Get(argVector,0),
 							 tb_Get(argVector,1),
 							 tb_Get(argVector,2),
@@ -470,7 +597,7 @@ static int XRpc_callNative(XmlRpc_t Xr, char *methodName, Vector_t argVector) {
 		break;
 	case 5:
 		{
-			_p5__t _p5 = (_p5__t)XRpc_getMethod(Xr, methodName);
+			_p5__t _p5 = (_p5__t)p;
 			rc = _p5(tb_Get(argVector,0),
 							 tb_Get(argVector,1),
 							 tb_Get(argVector,2),
@@ -480,7 +607,7 @@ static int XRpc_callNative(XmlRpc_t Xr, char *methodName, Vector_t argVector) {
 		break;
 	case 6:
 		{
-			_p6__t _p6 = (_p6__t)XRpc_getMethod(Xr, methodName);
+			_p6__t _p6 = (_p6__t)p;
 			rc = _p6(tb_Get(argVector,0),
 							 tb_Get(argVector,1),
 							 tb_Get(argVector,2),
@@ -491,7 +618,7 @@ static int XRpc_callNative(XmlRpc_t Xr, char *methodName, Vector_t argVector) {
 		break;
 	case 7:
 		{
-			_p7__t _p7 = (_p7__t)XRpc_getMethod(Xr, methodName);
+			_p7__t _p7 = (_p7__t)p;
 			rc = _p7(tb_Get(argVector,0),
 							 tb_Get(argVector,1),
 							 tb_Get(argVector,2),
@@ -503,7 +630,7 @@ static int XRpc_callNative(XmlRpc_t Xr, char *methodName, Vector_t argVector) {
 		break;
 	case 8:
 		{
-			_p8__t _p8 = (_p8__t)XRpc_getMethod(Xr, methodName);
+			_p8__t _p8 = (_p8__t)p;
 			rc = _p8(tb_Get(argVector,0),
 							 tb_Get(argVector,1),
 							 tb_Get(argVector,2),
@@ -516,7 +643,7 @@ static int XRpc_callNative(XmlRpc_t Xr, char *methodName, Vector_t argVector) {
 		break;
 	case 9:
 		{
-			_p9__t _p9 = (_p9__t)XRpc_getMethod(Xr, methodName);
+			_p9__t _p9 = (_p9__t)p;
 			rc = _p9(tb_Get(argVector,0),
 							 tb_Get(argVector,1),
 							 tb_Get(argVector,2),

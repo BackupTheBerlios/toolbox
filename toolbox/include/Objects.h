@@ -1,5 +1,5 @@
 //------------------------------------------------------------------
-// $Id: Objects.h,v 1.4 2004/07/01 21:37:09 plg Exp $
+// $Id: Objects.h,v 1.5 2005/05/12 21:54:36 plg Exp $
 //------------------------------------------------------------------
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -63,11 +63,13 @@ extern int	OM_CLONE;
 extern int	OM_DUMP;
 extern int	OM_CLEAR;
 extern int	OM_COMPARE;
+extern int	OM_SET;
 extern int	OM_INSPECT;
 extern int	OM_STRINGIFY;
 extern int	OM_SERIALIZE;
 extern int	OM_UNSERIALIZE;
 
+extern int  OM_NUMSET;
 
 // fixme: not a macro!
 #define PTBOBJ(A)    ((tb_Object_t *)(A)) 

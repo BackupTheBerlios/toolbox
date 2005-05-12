@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 2; indent-tabs-mode: t; c-basic-offset: 2 -*- */
 //------------------------------------------------------------------
-// $Id: Date_impl.c,v 1.4 2004/05/24 16:37:52 plg Exp $
+// $Id: Date_impl.c,v 1.5 2005/05/12 21:52:12 plg Exp $
 //------------------------------------------------------------------
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -45,6 +45,8 @@ static int      Date_toInt      (Date_t This);
 static char   * Date_toStr      (Date_t This);
 static Date_t   Date_unmarshall (XmlElt_t xml_entity);
 static void     Date_marshall   (String_t marshalled, String_t S, int level);
+static Tlv_t    Date_toTlv      (Date_t Self);
+static Date_t   Date_fromTlv    (Tlv_t T);
 
 static String_t DateStringify   (Date_t This);
 
@@ -77,7 +79,8 @@ void __build_date_once(int OID) {
 
 	tb_registerMethod(OID, OM_MARSHALL,     Date_marshall); 
 	tb_registerMethod(OID, OM_UNMARSHALL,   Date_unmarshall); 
-
+	tb_registerMethod(OID, OM_TOTLV,        Date_toTlv);
+	tb_registerMethod(OID, OM_FROMTLV,      Date_fromTlv);
 }
 
 
@@ -120,15 +123,6 @@ Date_t Date_new(char *iso8601) {
 
 	if((m->absolute = iso8601_to_time(iso8601)) >0) {
 		localtime_r(&(m->absolute), &(m->broken_down));
-
-		snprintf(m->string, 20, "%d%02d%02dT%02d:%02d:%02d",
-						 m->broken_down.tm_year + 1900,
-						 m->broken_down.tm_mon,
-						 m->broken_down.tm_mday,
-						 m->broken_down.tm_hour,
-						 m->broken_down.tm_min,
-						 m->broken_down.tm_sec);
-		
 	}
 
 	if(fm->dbg) fm_addObject(This);
@@ -149,15 +143,6 @@ Date_t Date_fromTime(time_t Tt) {
 
 	if((m->absolute = Tt) >0) {
 		localtime_r(&(m->absolute), &(m->broken_down));
-
-		snprintf(m->string, 20, "%d%02d%02dT%02d:%02d:%02d",
-						 m->broken_down.tm_year + 1900,
-						 m->broken_down.tm_mon,
-						 m->broken_down.tm_mday,
-						 m->broken_down.tm_hour,
-						 m->broken_down.tm_min,
-						 m->broken_down.tm_sec);
-		
 	}
 
 	if(fm->dbg) fm_addObject(This);
@@ -190,12 +175,21 @@ static Date_t Date_clear(Date_t This) {
 }
 
 static Date_t Date_clone(Date_t This) {
-	return tb_Date(Date_toStr(This));
+	return Date_fromTime(XDate(This)->absolute);
 }
 
 static void Date_dump(Date_t This, int level) {
 	int i;
 	Date_members_t m = XDate(This);
+
+	snprintf(m->string, 20, "%d%02d%02dT%02d:%02d:%02d",
+					 m->broken_down.tm_year + 1900,
+					 m->broken_down.tm_mon +1,
+					 m->broken_down.tm_mday,
+					 m->broken_down.tm_hour,
+					 m->broken_down.tm_min,
+					 m->broken_down.tm_sec);
+
   for(i = 0; i<level; i++) fprintf(stderr, " ");
 	fprintf(stderr, 
 					"<TB_DATE ADDR=\"%p\" DATE=\"%s\" REFCNT=\"%d\" DOCKED=\"%d\">\n",
@@ -207,6 +201,10 @@ static void Date_dump(Date_t This, int level) {
 
 
 static char * Date_toStr(Date_t This) {
+	Date_members_t m = XDate(This);
+
+	//	strftime(m->string, 50, "%m/%d/%Y %T", &m->broken_down);
+	strftime(m->string, 50, "%c", &m->broken_down);
 	return XDate(This)->string;
 }
 
@@ -225,26 +223,69 @@ static int Date_toInt(Date_t This) {
 
 
 //<dateTime.iso8601>20040514T12:25:58</dateTime.iso8601>
-void Date_marshall(String_t marshalled, String_t S, int level) {
+void Date_marshall(String_t marshalled, Date_t D, int level) {
 	char indent[level+1];
-	Date_members_t m = XDate(S);
+	Date_members_t m = XDate(D);
 	memset(indent, ' ', level);
 	indent[level] = 0;
+	snprintf(m->string, 20, "%d%02d%02dT%02d:%02d:%02d",
+					 m->broken_down.tm_year + 1900,
+					 m->broken_down.tm_mon +1,
+					 m->broken_down.tm_mday,
+					 m->broken_down.tm_hour,
+					 m->broken_down.tm_min,
+					 m->broken_down.tm_sec);
 
+	if(m->iso == 1) {
 	tb_StrAdd(marshalled, -1, "%s<dateTime.iso8601>%s</dateTime.iso8601>\n", 
 						indent, (char *)m->string);
+	} else {
+		tb_StrAdd(marshalled, -1, "%s<date>%lu</date>\n", 
+							indent, (unsigned int)m->absolute);
+	}
 }
 
 Date_t Date_unmarshall(XmlElt_t xml_entity) {
 	Date_t D = NULL;
 	Vector_t V;
-	if(! streq(S2sz(XELT_getName(xml_entity)), "dateTime.iso8601")) {
-		tb_error("tb_string_unmarshall: not a date Elmt\n");
-		return NULL;
-	}
+	if(tb_StrEQ(XELT_getName(xml_entity), "dateTime.iso8601")) {
 	if((V = XELT_getChildren(xml_entity)) != NULL &&
 		 tb_getSize(V) >0) {
 		D = tb_Date(tb_toStr(XELT_getText(tb_Get(V, 0))));
+			XDate(D)->iso = 1;
 	} 
+	} else if(tb_StrEQ(XELT_getName(xml_entity), "date")) {
+		if((V = XELT_getChildren(xml_entity)) != NULL &&
+			 tb_getSize(V) >0) {
+			D = Date_fromTime((unsigned int)tb_toInt(XELT_getText(tb_Get(V, 0))));
+		} else {
+			D = Date_fromTime(time(NULL));
+		} 
+	} else {
+		tb_error("Date_unmarshall: not a date Elmt\n");
+		return NULL;
+	}
+
 	return D;
 }
+
+
+static Tlv_t Date_toTlv(Date_t Self) {
+	return Tlv(TB_DATE, sizeof(int), (char *)XDate(Self)->absolute);
+}
+
+static Date_t Date_fromTlv(Tlv_t T) {
+	int val   = *(((int*)T)+2);
+	return Date_fromTime((unsigned long)val);
+}
+
+
+
+
+
+
+
+
+
+
+

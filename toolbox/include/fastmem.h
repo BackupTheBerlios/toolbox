@@ -1,5 +1,5 @@
 //------------------------------------------------------------------
-// $Id: fastmem.h,v 1.1 2004/05/12 22:04:49 plg Exp $
+// $Id: fastmem.h,v 1.2 2005/05/12 21:54:36 plg Exp $
 //------------------------------------------------------------------
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -28,12 +28,24 @@
 
 struct chunk {
 	unsigned int  status;
-	//	unsigned int  refcnt;
+		unsigned int  refcnt;
 	unsigned int    size;
 	struct chunk  * prev;
 	struct chunk  * next;
 };
 typedef struct chunk *chunk_t;
+
+
+/* struct chunk { */
+/* 	unsigned char  status; */
+/* 	unsigned char  rfu; */
+/* 	unsigned short cnt; */
+/* 	//	unsigned int  refcnt; */
+/* 	unsigned int    size; */
+/* 	struct chunk  * prev; */
+/* 	struct chunk  * next; */
+/* }; */
+/* typedef struct chunk *chunk_t; */
 
 
 struct tx_debug {
@@ -108,6 +120,8 @@ int     fm_addref       (void *mem);
 int     fm_unref        (void *mem);
 void fm_addObject(tb_Object_t O);
 void fm_delObject(tb_Object_t O);
+void fm_dropObject(tb_Object_t O);
+void fm_recycleObject(tb_Object_t O);
 
 void _setup_fm();
 #endif

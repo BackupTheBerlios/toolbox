@@ -10,6 +10,7 @@ libScalars_la_SOURCES  = \
 	String.c     \
 	Raw.c        \
 	Num.c        \
+	Bool.c       \
 	C_Castable_interface.c      \
 	Pointer.c                   \
 	Date.c Date_impl.c   

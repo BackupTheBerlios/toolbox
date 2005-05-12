@@ -1,4 +1,4 @@
-// $Id: socket_test.c,v 1.2 2004/05/13 08:22:45 plg Exp $
+// $Id: socket_test.c,v 1.3 2005/05/12 21:52:40 plg Exp $
 #include <pthread.h>
 #include <string.h>
 #include <errno.h>
@@ -17,10 +17,10 @@
 void *callback(void *arg) {
 	Socket_t S = (Socket_t)arg;
 	String_t Str = tb_String(NULL);
-	//int i;
+	int rc;
 	//char buff[100];
 
-	tb_trace(TB_WARN, "Server: New cx \n");
+	tb_warn("Server: New cx \n");
 	tb_Dump(S);
 
 	// -- for educative purpose only. -optional- behaviour
@@ -33,7 +33,7 @@ void *callback(void *arg) {
 
 	tb_readSock(S, Str, MAX_BUFFER);
 
-	tb_trace(TB_WARN, "Server: recv<%s>\n", tb_toStr(Str));
+	tb_warn("Server: recv<%s>\n", tb_toStr(Str));
 	/*
 	for(i=10;i>0; i--) {
 		snprintf(buff, 100, "cb[%d] countdown: %d\n", pthread_self(), i);
@@ -41,16 +41,15 @@ void *callback(void *arg) {
 		sleep(1);
 	}
 	*/
-	sleep(10);
-	tb_writeSock(S, "BYE");
-	//tb_trace(TB_WARN, "Server: exit callback\n");
+	rc = tb_writeSock(S, "BYE");
+	tb_warn("Server: wrote %d\n", rc);
 	tb_Free(Str);
 
 	return NULL;
 }
 
 void *tst_client(void *dummy) {
-	Socket_t Client  = tb_Socket(TB_TCP_IP, "", 55553);
+	Socket_t Client  = tb_Socket(TB_TCP_IP, "192.168.0.35", 55553);
 	String_t S  = tb_String(NULL); 
 
 	tb_Connect(Client, 1, 1);
@@ -64,7 +63,7 @@ void *tst_client(void *dummy) {
 			}
 		}
 	} else {
-		tb_trace(TB_WARN, "Not connected !!\n");
+		tb_warn("Not connected !!\n");
 	}
 	
 	tb_Free(S);
@@ -130,20 +129,13 @@ int udp_ux(void *arg) {
 
 int main(int argc, char **argv) {
 
-	int test_udp_ip   = 1;
-	int test_udp_unix = 1;
+	int test_udp_ip   = 0;
+	int test_udp_unix = 0;
 	int test_tcp_ip   = 1;
 	int test_tcp_unix = 1;
 
-	tb_profile("Version: %s", tb_getVersion()); 
-	tb_profile("Build: %s", tb_getBuild()); 
-
-	if( 0 ) {
-		Socket_t S = tb_Socket(TB_TCP_IP, "saturne12.vox33.cvf", 1024);
-		tb_Connect(S, 2, 2);
-		tb_Dump(S);
-		tb_Free(S);
-	}
+/* 	tb_profile("Version: %s", tb_getVersion());  */
+/* 	tb_profile("Build: %s", tb_getBuild());  */
 
 	if(test_udp_ip) {
 		Socket_t Serv    = tb_Socket(TB_UDP_IP, "localhost", 55551);
@@ -168,7 +160,7 @@ int main(int argc, char **argv) {
 				tb_warn("client: got <%S>\n", S);
 			}
 		} else {
-			tb_trace(TB_WARN, "Not connected !!\n");
+			tb_warn("Not connected !!\n");
 		}
 
 		tb_Free(S);
@@ -205,7 +197,7 @@ int main(int argc, char **argv) {
 				tb_warn("client: got <%S>\n", S);
 			}
 		} else {
-			tb_trace(TB_WARN, "Not connected !!\n");
+			tb_warn("Not connected !!\n");
 		}
 
 		tb_Free(S);
@@ -233,7 +225,7 @@ int main(int argc, char **argv) {
 		pthread_create(&pt, NULL, tb_Accept, Serv); 
 		pthread_detach(pt);
 
-		for(i=0; i<10; i++) {
+		for(i=0; i<1; i++) {
 			pthread_create(&pt, NULL, tst_client, NULL); 
 			pthread_detach(pt);
 		}
@@ -269,18 +261,29 @@ int main(int argc, char **argv) {
 
 		tb_initServer(Serv, callback, NULL);
 
+		tb_Dump(Serv);
+		tb_Dump(Client);
+
+
 		pthread_create(&pt, NULL, tb_Accept, Serv); 
 		pthread_detach(pt);
 
+		sleep(2);
+ 
 		tb_Connect(Client, 1, 1);
 		
 		if(tb_getSockStatus(Client) == TB_CONNECTED) {
-			tb_writeSock(Client, "TEST TCP/UNIX");
-			if( tb_readSock(Client, S, 500) >0) {
+			int rc;
+			tb_warn("client: connected\n");
+			rc = tb_writeSock(Client, "TEST TCP/UNIX");
+			tb_warn("writesock : %d\n", rc);
+			if((rc = tb_readSock(Client, S, 500)) >0) {
 				tb_warn("client: got <%S>\n", S);
+			} else {
+				tb_warn("readsock : %d\n", rc);
 			}
 		} else {
-			tb_trace(TB_WARN, "Not connected !!\n");
+			tb_warn("Not connected !!\n");
 		}
 
 		tb_stopServer( Serv );

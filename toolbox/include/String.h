@@ -1,5 +1,5 @@
 //------------------------------------------------------------------
-// $Id: String.h,v 1.2 2004/07/01 21:37:18 plg Exp $
+// $Id: String.h,v 1.3 2005/05/12 21:54:36 plg Exp $
 //------------------------------------------------------------------
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -29,9 +29,15 @@ struct   string_members {
 };
 typedef struct string_members *string_members_t;
 inline string_members_t XStr(String_t This);
-//#define _SZ(A)      ((char *)((String_t)A)->data)
+
+
+int __tb_asprintf     (char **s, const char *fmt, ...);
+int __tb_vasprintf    (char **s, const char *fmt, va_list ap);
+int __tb_vnasprintf   (char **s, unsigned int max, const char *fmt, va_list ap);
 
 
 void     tb_string_marshall   (String_t marshalled, String_t S, int level);
 String_t tb_string_unmarshall (XmlElt_t xml_entity);
+
+void     stringFactoryCleanCache();
 #endif

@@ -1,4 +1,4 @@
-// $Id: socket_acl.c,v 1.1 2004/05/12 22:05:14 plg Exp $
+// $Id: socket_acl.c,v 1.2 2005/05/12 21:52:40 plg Exp $
 
 #include <pthread.h>
 #include <string.h>
@@ -20,7 +20,7 @@ int callback(void *arg) {
 	//int i;
 	//char buff[100];
 
-	tb_trace(TB_WARN, "Server: New cx \n");
+	tb_warn("Server: New cx \n");
 	tb_Dump(S);
 
 	// -- for educative purpose only. -optional- behaviour
@@ -33,7 +33,7 @@ int callback(void *arg) {
 
 	tb_readSock(S, Str, MAX_BUFFER);
 
-	tb_trace(TB_WARN, "Server: recv<%s>\n", tb_toStr(Str));
+	tb_warn("Server: recv<%s>\n", tb_toStr(Str));
 	/*
 	for(i=10;i>0; i--) {
 		snprintf(buff, 100, "cb[%d] countdown: %d\n", pthread_self(), i);
@@ -64,7 +64,7 @@ int tst_client(void) {
 			}
 		}
 	} else {
-		tb_trace(TB_WARN, "Not connected !!\n");
+		tb_warn("Not connected !!\n");
 	}
 	
 	tb_Free(S);

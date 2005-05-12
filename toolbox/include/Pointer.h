@@ -1,5 +1,5 @@
 //------------------------------------------------------------------
-// $Id: Pointer.h,v 1.2 2004/07/01 21:37:18 plg Exp $
+// $Id: Pointer.h,v 1.3 2005/05/12 21:54:36 plg Exp $
 //------------------------------------------------------------------
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -23,6 +23,10 @@ void * tb_pointer_free     (Pointer_t S);
 void   tb_pointer_dump     (Pointer_t P, int level);
 int    tb_pointer_getsize  (Pointer_t P);
 
+Pointer_t Pointer_new();
+Pointer_t Pointer_clear(Pointer_t Self);
+Pointer_t Pointer_ctor(Pointer_t Self, void *p, void *free_fnc);
+
 struct pointer_members {
 	void *userData;
 	void (*freeUserData)(void *);
@@ -30,7 +34,5 @@ struct pointer_members {
 };
 typedef struct pointer_members *pointer_members_t;
 inline pointer_members_t XPtr(Pointer_t);
-
-Pointer_t Pointer_ctor(Pointer_t Self, void *p, void *free_fnc);
 
 #endif

@@ -1,0 +1,53 @@
+Author Paul L. Gatille <Paul.Gatille@free.fr>
+begin_licence
+/*
+ * Copyright (c) 2004, Paul Gatille
+ * This file is part of Toolbox, an object-oriented utility library
+ *
+ * This library is free software; you can redistribute it and/or modify it
+ * under the terms of the "Artistic License" which comes with this Kit.
+ *
+ * This software is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+ * or FITNESS FOR A PARTICULAR PURPOSE. See the Artistic License for more
+ * details.
+*/
+end_licence
+
+#use defines for identifiers (static identifiers are allowed only for toolbox internal classes)
+TbxBuiltin
+
+ClassName Num
+ClassPrefix Num_
+#ClassParent may be empty
+ClassParent Scalar
+#Interface may also be empty or occurs more than once
+Interface
+
+
+#----------------------------------------------------
+#- FLAGS --------------------------------------------
+#----------------------------------------------------
+# __CTOR_      construct new object instance
+# __DTOR_      destroy object instance
+# __INSPECTOR_ doesn't modify object
+# __MUTATOR_   changes the object
+# __FACTORY_   construct other objects
+#----------------------------------------------------
+
+#----------------------------------------------------
+#- VISIBLILTY ---------------------------------------
+#----------------------------------------------------
+# __PUBLIC_ can be used by anyone
+# __PRIVATE_ can only be used by class and derivates
+# practically : private are declared in _impl.h ; 
+# publics are in vanilla .h
+#----------------------------------------------------
+
+begin_members
+#<name> <type may be composed of many words>
+#__PRIVATE_ size unsigned int
+__PRIVATE_ value int
+__PRIVATE_ size int
+end_members
+

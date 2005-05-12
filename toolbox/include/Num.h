@@ -1,4 +1,4 @@
-// $Id: Num.h,v 1.2 2004/07/01 21:37:09 plg Exp $
+// $Id: Num.h,v 1.3 2005/05/12 21:54:36 plg Exp $
 //================================================================
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -17,7 +17,7 @@
 #define _NUM_H
 
 #include "Toolbox.h"
-
+#include "Objects.h"
 
 struct num_members {
 	char strbuff[20];
@@ -27,7 +27,7 @@ struct num_members {
 	int size;
 };
 typedef struct num_members *num_members_t;
-
+inline num_members_t XNum(Num_t Self);
 
 #endif
 

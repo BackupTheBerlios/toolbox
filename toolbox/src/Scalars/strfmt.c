@@ -1,5 +1,5 @@
 //===================================================
-// $Id: strfmt.c,v 1.1 2004/05/12 22:04:53 plg Exp $
+// $Id: strfmt.c,v 1.2 2005/05/12 21:52:12 plg Exp $
 //===================================================
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -954,8 +954,21 @@ str_vformat(
                     break;
 								/* String_t */		
 						    case 'S' :
+#if 0
 									S = va_arg(ap, String_t);
-									s = S2sz(S);
+									s = (S && tb_isA(S)==TB_STRING) ? XStr(S)->data : NULL;
+									// s = tb_toStr(S);
+									if (s != NULL) {
+										s_len = XStr(S)->size;//strlen(s);
+										if (adjust_precision && precision < s_len)
+											s_len = precision;
+									} else {
+										s = S_NULL;
+										s_len = S_NULL_LEN;
+									}
+#else
+ 									S = va_arg(ap, String_t);
+									s = tb_toStr(S);
 									if (s != NULL) {
 										s_len = strlen(s);
 										if (adjust_precision && precision < s_len)
@@ -964,6 +977,8 @@ str_vformat(
 										s = S_NULL;
 										s_len = S_NULL_LEN;
 									}
+#endif
+
 									pad_char = ' ';
 									break;
 
@@ -1240,7 +1255,8 @@ int tb_asprintf(char **s, const char *fmt, ...) {
 	rc = str_format_va(NULL, INT_MAX, fmt, ap);
 	*s = calloc(1, rc+1);
 	va_start(ap, fmt);
-	rc = str_format_va(*s, INT_MAX, fmt, ap);
+//		rc = str_format_va(*s, INT_MAX, fmt, ap);
+	rc = str_format_va(*s, rc+1, fmt, ap);
 	va_end(ap);
 
 	return rc;
@@ -1254,7 +1270,8 @@ int __tb_asprintf(char **s, const char *fmt, ...) {
 	rc = str_format_va(NULL, INT_MAX, fmt, ap);
 	*s = tb_xcalloc(1, rc+1);
 	va_start(ap, fmt);
-	rc = str_format_va(*s, INT_MAX, fmt, ap);
+//		rc = str_format_va(*s, INT_MAX, fmt, ap);
+	rc = str_format_va(*s, rc+1, fmt, ap);
 	va_end(ap);
 
 	return rc;
@@ -1296,7 +1313,8 @@ int tb_vasprintf(char **s, const char *fmt, va_list ap) {
 	int rc;
 	rc = str_format_va(NULL, INT_MAX, fmt, ap);
 	*s = calloc(1, rc+1);
-	rc = str_format_va(*s, INT_MAX, fmt, ap);
+		//rc = str_format_va(*s, INT_MAX, fmt, ap);
+	rc = str_format_va(*s, rc+1, fmt, ap);
 
 	return rc;
 }
@@ -1305,7 +1323,8 @@ int __tb_vasprintf(char **s, const char *fmt, va_list ap) {
 	int rc;
 	rc = str_format_va(NULL, INT_MAX, fmt, ap);
 	*s = tb_xcalloc(1, rc+1);
-	rc = str_format_va(*s, INT_MAX, fmt, ap);
+//		rc = str_format_va(*s, INT_MAX, fmt, ap);
+	rc = str_format_va(*s, rc+1, fmt, ap);
 
 	return rc;
 }

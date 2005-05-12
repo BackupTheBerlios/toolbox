@@ -1,5 +1,5 @@
 //==========================================================
-// $Id: codecs.c,v 1.1 2004/05/12 22:04:53 plg Exp $
+// $Id: codecs.c,v 1.2 2005/05/12 21:52:12 plg Exp $
 //==========================================================
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -324,8 +324,8 @@ int base64_decode(const char *str, void *data)
 
 retcode_t latin1_to_utf8(char **utf8, unsigned char *latin1)
 {
-#warning fixme: range error
 #if BUGGY_CODE
+#warning fixme: range error
 	int len = strlen(latin1)*2;
 	int cur = 0;
 
