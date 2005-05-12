@@ -1,5 +1,5 @@
 //========================================================================
-// 	$Id: Server.c,v 1.2 2004/07/01 21:38:23 plg Exp $
+// 	$Id: Server.c,v 1.3 2005/05/12 21:49:20 plg Exp $
 //========================================================================
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -87,6 +87,19 @@ int tb_getSockFD     (Socket_t O) {
 	return XSock(O)->sock;
 }
 
+int tb_getServTHR(Socket_t O) {
+	if(!TB_VALID(O, TB_SOCKET))  {
+		set_tb_errno(TB_ERR_INVALID_TB_OBJECT);
+		return TB_ERR;
+	}
+	if(XSock(O)->server == NULL) {
+		set_tb_errno(TB_ERR_BAD);
+		return TB_ERR; 
+	}
+	return XServer(O)->cur_threads;
+}
+
+
 retcode_t tb_initServer(Socket_t O, void *callback, void *cb_args) {
 	if(!TB_VALID(O, TB_SOCKET))  {
 		set_tb_errno(TB_ERR_INVALID_TB_OBJECT);
@@ -151,6 +164,31 @@ int tb_getServMAXTHR     (Socket_t O) {
 		return TB_ERR; 
 	}
 	return (XServer(O)->max_threads);
+}
+
+
+int tb_getServCxNumber(Socket_t O) {
+	if(!TB_VALID(O, TB_SOCKET))  {
+		set_tb_errno(TB_ERR_INVALID_TB_OBJECT);
+		return TB_ERR;
+	}
+	if(XSock(O)->server == NULL)  {
+		set_tb_errno(TB_ERR_BAD);
+		return TB_ERR; 
+	}
+	return (XServer(O)->nb_cx);
+}
+
+time_t tb_getServLastCx(Socket_t O) {
+	if(!TB_VALID(O, TB_SOCKET))  {
+		set_tb_errno(TB_ERR_INVALID_TB_OBJECT);
+		return TB_ERR;
+	}
+	if(XSock(O)->server == NULL)  {
+		set_tb_errno(TB_ERR_BAD);
+		return TB_ERR; 
+	}
+	return (XServer(O)->last_cx);
 }
 
 
@@ -273,6 +311,7 @@ static retcode_t tb_initSockServer_UNIX(Socket_t O, void *callback, void *cb_arg
 	S = XSock(O);
 
   S->status   = TB_UNSET;
+	//	tb_warn("will destroy inode <%s>\n", S->name);
 	unlink(S->name);
 
 	Serv = S->server  = (sock_server_t)tb_xcalloc(1, sizeof(struct sock_server));
@@ -284,13 +323,11 @@ static retcode_t tb_initSockServer_UNIX(Socket_t O, void *callback, void *cb_arg
   myProto        = (S->proto == TB_TCP) ? SOCK_STREAM : SOCK_DGRAM;
   
   S->sock = socket(AF_UNIX, myProto, 0);
-  if (tb_errorlevel >= TB_NOTICE) {
 		if(S->sock < 0)	{ 
 			tb_error("Server_init: socket %s\n", strerror(errno)); 
 			set_tb_errno(TB_ERR_SOCKET_FAILED);
 			return TB_ERR; 
 		}
-	}
   // allow reuse of socket (even if yet bound by defunct process)
   setsockopt(S->sock, SOL_SOCKET, SO_REUSEADDR , (const void *)&val, sizeof(int));
 
@@ -336,16 +373,7 @@ void *tb_Accept( void *Arg ) {  // arg is void * for use w/ pthread_create
 		return NULL;
 	}
 	
-	switch( XSock(O)->addr_family ) {
-	case TB_IP:
 		return tb_Accept_IP(O);
-#ifdef WITH_XTI
-	case TB_X25:
-		return tb_Accept_x25(O);
-#endif
-	}
-	set_tb_errno(TB_ERR_INVALID_TB_OBJECT);
-	return NULL;
 }
 
 static void *tb_Accept_IP( Socket_t O ) {
@@ -361,7 +389,7 @@ static void *tb_Accept_IP( Socket_t O ) {
   socklen_t        len               = sizeof(incoming);
   pthread_t      * pt                = NULL;
   pthread_cond_t * exit_cond;
-  int              actual_threads_nb = 0;
+	//  int              actual_threads_nb = 0;
 	int nothing_to_do                  = 1;
 #ifdef WITH_SSL
 	SSL            * ssl_cx            = NULL;
@@ -416,15 +444,15 @@ static void *tb_Accept_IP( Socket_t O ) {
 				switch (rc)
 					{
 					case -2: // shutdown requested
-						// free what need to be freed
+						// free what needs to be freed
 						{
 							sock_server_t ms = XServer(O);
 							tb_notice("tb_Accept[%d]: stopping server (by request)\n", S->port);
 
 							pthread_mutex_lock(Srv->nb_t_mtx);
-							while( actual_threads_nb > 0 ) {
+							while( Srv->cur_threads /*actual_threads_nb*/ > 0 ) {
 								tb_notice("tb_Accept[%d]: shutdown in progress: still %d thread(s) working\n",
-													S->port, actual_threads_nb);
+													S->port, Srv->cur_threads /*actual_threads_nb*/);
 								pthread_cond_wait( exit_cond, Srv->nb_t_mtx );
 							}
 							pthread_mutex_unlock(Srv->nb_t_mtx);
@@ -535,6 +563,31 @@ static void *tb_Accept_IP( Socket_t O ) {
 			}
 #endif
 
+#if 0
+      pthread_mutex_lock(Srv->nb_t_mtx);
+			if(Srv->cur_threads /*actual_threads_nb*/ == Srv->max_threads ) {
+				while( Srv->cur_threads /*actual_threads_nb*/ == Srv->max_threads ) {
+					tb_info("tb_Accept[%d]: max thread limit reached (%d). Waiting for a free...\n", 
+									S->port, Srv->cur_threads/*actual_threads_nb*/);
+					pthread_cond_wait( exit_cond, Srv->nb_t_mtx );
+				}
+				tb_info("tb_Accept[%d]: (max thread blocking end) resuming operations\n", 
+								 S->port);
+			}
+
+      Srv->cur_threads++/*actual_threads_nb++*/;
+      pthread_mutex_unlock(Srv->nb_t_mtx);
+#endif
+
+			if(Srv->cur_threads /*actual_threads_nb*/ >= Srv->max_threads ) {
+				tb_warn("too many cx (%d) : refusing\n", Srv->cur_threads);
+				close(s);
+				goto restart;
+			} 
+			Srv->cur_threads++;
+			Srv->nb_cx++;
+			Srv->last_cx = time(NULL);
+
       pt = (pthread_t *)tb_xmalloc(sizeof(pthread_t));
       
       sp_args    = (spawn_args *)   tb_xmalloc(sizeof(spawn_args)); 
@@ -545,25 +598,14 @@ static void *tb_Accept_IP( Socket_t O ) {
 
       sp_args->mutex              = Srv->nb_t_mtx;
       sp_args->cond               = exit_cond;
-      sp_args->nb                 = &actual_threads_nb;
+			//      sp_args->nb                 = &actual_threads_nb;
       XSock(A)->sock              = s;
       XSock(A)->status            = TB_CONNECTED;
 #ifdef WITH_SSL
 			if(use_ssl) XSsl(A)->cx    = ssl_cx;
 #endif
-      pthread_mutex_lock(Srv->nb_t_mtx);
-			if(actual_threads_nb == Srv->max_threads ) {
-				while( actual_threads_nb == Srv->max_threads ) {
-					tb_warn("tb_Accept[%d]: max thread limit reached (%d). Waiting for a free...\n", 
-									 S->port, actual_threads_nb);
-					pthread_cond_wait( exit_cond, Srv->nb_t_mtx );
-				}
-				tb_warn("tb_Accept[%d]: (max thread blocking end) resuming operations\n", 
-								 S->port);
-			}
 
-      actual_threads_nb++;
-      pthread_mutex_unlock(Srv->nb_t_mtx);
+
 #ifdef WITH_SSL
 			if(use_ssl ) {
 				if(tb_errorlevel >= TB_NOTICE ) ssl_barf_out(A);
@@ -582,7 +624,7 @@ static void *tb_Accept_IP( Socket_t O ) {
       pthread_create(pt, NULL, &spawner, sp_args);
 			if(tb_errorlevel >= TB_NOTICE) {
 				tb_notice("tb_Accept[%d]: starting a new thread[%d] (#%d/#%d)\n", 
-								 S->port, *pt, actual_threads_nb, Srv->max_threads);
+									S->port, *pt, Srv->cur_threads/*actual_threads_nb*/, Srv->max_threads);
 			}
 
 			pthread_detach(*pt);
@@ -610,26 +652,28 @@ static void *tb_Accept_IP( Socket_t O ) {
 void *spawner(void *arg) {
   pthread_mutex_t *mutex  = ((spawn_args *)arg)->mutex; 
   pthread_cond_t  *cond   = ((spawn_args *)arg)->cond; 
-  int t, *nb              = ((spawn_args *)arg)->nb;
+	//  int t;//, *nb              = ((spawn_args *)arg)->nb;
 	Socket_t S              = (Socket_t )((spawn_args *)arg)->So;
   int (*fnc)(Socket_t)    = (XServer(S))->callback;
   int rc;
-#ifdef WITH_SOCK_ACL
+
 	Socket_t Parent         = (Socket_t )((spawn_args *)arg)->Parent;
 	sock_server_t Srv       = XServer(Parent);
+#ifdef WITH_SOCK_ACL
 	freq_acl_t F;
 	socklen_t slen = sizeof(saddr);
 	char *name = NULL;;
 	struct sockaddr saddr;
 #endif
 
-  t = *nb;
+	//  t = *nb;
   
   tb_info( "tb_Accept: spawn callback[fd:%d]\n", tb_getSockFD(S));
   rc = (*fnc)(S);
 
   pthread_mutex_lock(mutex);
-  (*nb)--;
+	Srv->cur_threads--;
+	//  (*nb)--;
   pthread_cond_signal(cond);
 
 #ifdef WITH_SOCK_ACL

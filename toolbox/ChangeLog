@@ -1,3 +1,45 @@
+2004-10-21  Gatille Paul  <pge@xanadu>
+
+	* src/Containers/bplus_tree.c: 
+	fix tb_Dict::Clear : after a tb_Clear() tree's root was broken.
+
+2004-10-14  Gatille Paul  <pge@xanadu>
+
+	* src/Containers/Hash_impl.c: 
+	fix broken linking in node lists (-> all list could be removed when removing last list entry ! :(
+
+2004-10-13  Gatille Paul  <pge@xanadu>
+
+	* src/Scalars/String.c: 
+	fix tb_StrEQ, tb_StrEQi, was returning TB_ERR when wrong params, interpretated as 'true' (not 0 !) by callers
+
+2004-10-12  Gatille Paul  <pge@xanadu>
+
+	* src/Scalars/String.c: 
+	fixed string default ctor 
+
+2004-10-04  Gatille Paul  <pge@xanadu>
+
+	* src/Composites/SockIO.c: 
+	fix use of RawAdd in tb_ReadSock (last byte was mangled to '00' when data was larger than MTU)
+
+2004-08-02  Gatille Paul  <pge@xanadu>
+
+	* src/Composites/Server.c: fix TCP/UX servers (broken since X25 servers) : looongstanding bug
+
+2004-07-21  Gatille Paul  <pge@xanadu>
+
+	* src/XmlLite/XmlRpc_util.c: fix bug when XmlRpc returns 'fault' response
+
+2004-07-05  Gatille Paul  <pge@xanadu>
+
+	* src/Scalars/String.c: shut up noisy trace in stringFactory
+
+	* src/Scalars/Num.c: fix double free in tb_num_free
+
+	* src/XmlLite/XmlRpc.c: 
+	BIG stupid bad bug : HASH/VECTOR inverted in XRpc_getParamType !
+
 2004-06-16  Gatille Paul  <pge@xanadu>
 
 	* src/Objects/Serialisable_interface.c: 

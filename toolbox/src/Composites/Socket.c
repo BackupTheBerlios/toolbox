@@ -1,5 +1,5 @@
 //========================================================================
-// 	$Id: Socket.c,v 1.2 2004/06/08 20:30:59 plg Exp $	
+// 	$Id: Socket.c,v 1.3 2005/05/12 21:49:20 plg Exp $	
 //========================================================================
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -171,7 +171,7 @@ Socket_t tb_Socket(int mode, ...) {
 		return tb_sock_new(tb_newParent(TB_SOCKET), mode, name, 0);
 	} 
 
-	tb_trace(TB_CRIT, "tb_Socket: unknown protocol family\n");
+	tb_crit("tb_Socket: unknown protocol family\n");
 	return NULL;
 }
 
@@ -415,11 +415,12 @@ static int tb_initSocket_IP(Socket_t O) {
 	sock_members_t           S;
   struct sockaddr_in     sockaddr, *s;
 	struct hostinf       * hostinf;
-	struct hostent       * h;
+	struct hostent       * h = NULL;
   int                    n, port, myProto, ret, retries = 0;
 	socklen_t              rc;
   struct timeval         timeout;
 	char                 * hostname;
+	int                    dotted = 0;
 
 	s = (struct sockaddr_in *)&sockaddr;
 
@@ -432,12 +433,17 @@ static int tb_initSocket_IP(Socket_t O) {
 	
 	hostname = (*S->name == 0) ? "localhost" : S->name;
 	if(( hostinf = gethost_sin_addr(hostname)) == NULL) {
+		struct in_addr inaddr;
+		if(inet_aton(hostname, &inaddr) != 0) {
+			dotted = inaddr.s_addr;
+		} else {
 		tb_error("tb_initSocket_IP: unknown host <%s>\n", hostname);
 		set_tb_errno(TB_ERR_INVALID_HOSTNAME);
 		return TB_ERR;
 	}
+	}
 	
-	h = hostinf->he;
+	if(hostinf) h = hostinf->he;
 
   sockaddr.sin_family = AF_INET;
   sockaddr.sin_port   = htons(port);
@@ -445,15 +451,20 @@ static int tb_initSocket_IP(Socket_t O) {
 	while( ++retries <= S->retries ) 
 		{
 			n = 0;
-			while( h->h_addr_list[n] )
+			while( (h && h->h_addr_list[n]) || dotted  != 0)
 				{
+					if(dotted) {
+						s->sin_addr.s_addr = dotted;
+						tb_warn("tb_initSocket_IP: can't resolv, but valid address ... let's try\n");
+					} else {
 					s->sin_addr = *(struct in_addr *)(h->h_addr_list[n++]);
+					}
 					
 					if( (S->sock = socket(PF_INET, myProto, 0)) == -1) {	
 						tb_error("tb_initSocket_IP: socket error <%s:%d> %d: %s\n", 
 										 S->name, S->port, errno, strerror(errno));
 						S->status = TB_UNSET ; 
-						hostinf_free(hostinf);
+						if(hostinf) hostinf_free(hostinf);
 						set_tb_errno(TB_ERR_SOCKET_FAILED);
 						return TB_ERR; 
 					}
@@ -473,7 +484,7 @@ static int tb_initSocket_IP(Socket_t O) {
 
 									if( myProto == TB_UDP ) {
 										S->status = TB_CONNECTED;
-										hostinf_free(hostinf);
+										if(hostinf) hostinf_free(hostinf);
 										return TB_OK;
 									}
 
@@ -506,7 +517,7 @@ static int tb_initSocket_IP(Socket_t O) {
 											if(ret == 0) {
 												set_nonblock_flag(S->sock, 0);
 												S->status = TB_CONNECTED;
-												hostinf_free(hostinf);
+												if(hostinf) hostinf_free(hostinf);
 												// we are now connected
 #ifdef WITH_SSL
 												if(S->ssl) {
@@ -536,7 +547,7 @@ static int tb_initSocket_IP(Socket_t O) {
 						{
 							set_nonblock_flag(S->sock, 0);
 							S->status = TB_CONNECTED;
-							hostinf_free(hostinf);
+							if(hostinf) hostinf_free(hostinf);
 #ifdef WITH_SSL
 							if(S->ssl) {
 								return tb_connectSSL(O);
@@ -553,8 +564,9 @@ static int tb_initSocket_IP(Socket_t O) {
 			}
     }
 
-	tb_error("tb_initSocket_IP: <%s> can't connect \n", S->name, S->port);
-	hostinf_free(hostinf);
+	tb_error("tb_initSocket_IP: <%s:%d> can't connect \n", 
+					 S->name, S->port);
+	if(hostinf) hostinf_free(hostinf);
 	set_tb_errno(TB_ERR_CONNECT_FAILED);	
 
 	return TB_ERR;
@@ -609,10 +621,7 @@ void *tb_sock_free(Socket_t O) {
 	if(tb_valid(O, TB_SOCKET, __FUNCTION__)) {
 		sock_members_t m = XSock(O);
 
-		if(tb_getSockFD(O) != -1) close(m->sock);
-		if(m->addr_family == TB_UNIX && (m->name != NULL) ) {
-			unlink(m->name);
-		}
+		if(m->sock != -1) close(m->sock);
 		if(m->name) {
 			tb_xfree(m->name);
 		}
@@ -628,6 +637,12 @@ void *tb_sock_free(Socket_t O) {
 				_free_srv_acl(XAcl(O));
 			} 
 			tb_xfree(m->server);
+
+			// FIXME: need to destroy inode *only* when server terminate
+/* 			if(m->addr_family == TB_UNIX && (m->name != NULL) ) { */
+/* 				unlink(m->name); */
+/* 			} */
+
 		}
 #ifdef WITH_SSL
 		if(m->ssl)   {
@@ -925,14 +940,6 @@ void hostinf_free(struct hostinf *h) {
 struct hostinf * gethost_sin_addr(char *host) {
 	int res;
 	struct hostinf *retval = tb_xcalloc(1, sizeof(struct hostinf));
-#ifdef AIX
-	struct hostent_data *host_data = tb_xcalloc(1, sizeof(struct hostent_data));
-	struct hostent *hp = tb_xcalloc(1, sizeof(struct hostent));
-
-	retval->data = host_data;
-	retval->he   = hp;
-
-#elif defined LINUX
 	struct in_addr inaddr;
 	struct hostent *hp;
 	struct hostent *hostbuf = tb_xcalloc(1, sizeof(struct hostent));
@@ -945,12 +952,8 @@ struct hostinf * gethost_sin_addr(char *host) {
 
 	retval->data = tmphstbuf;
 
-#else
-	return NULL;
-#endif
 
 	
-#ifdef LINUX		 
  do_it_again:
 
 	if(inet_aton(host, &inaddr) != 0) { // IPv4 dotted address
@@ -982,16 +985,6 @@ struct hostinf * gethost_sin_addr(char *host) {
 		return NULL;
 	}
 	retval->he = hp;
-#elif defined AIX
-	if((res = gethostbyname_r(host, hp, host_data)) != 0) {
-		tb_xfree(hp);
-		tb_xfree(host_data);
-		tb_xfree(retval);
-		return NULL;
-	}
-#else
-		return NULL;
-#endif	
 	
 	if (res || hp == NULL) {
 		tb_xfree(retval->data);

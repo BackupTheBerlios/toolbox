@@ -1,3 +1,4 @@
+SUBDIRS = Ipc
 INCLUDES = -I. -I$(top_srcdir)/include @SSL_INCLUDE@
 AM_CFLAGS   = @COMMON_CFLAGS@
 
@@ -12,7 +13,7 @@ libComposites_la_SOURCES  = \
 	Sock_ssl.c   \
 	Sock_ACL.c   \
 	SockIO.c     
-libComposites_la_LIBADD   = 
+libComposites_la_LIBADD   = Ipc/libIpc.la
 libComposites_la_LDFLAGS  = 
 
 
