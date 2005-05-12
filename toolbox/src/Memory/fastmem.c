@@ -1,5 +1,5 @@
 //====================================================
-//$Id: fastmem.c,v 1.3 2004/07/01 21:39:15 plg Exp $
+//$Id: fastmem.c,v 1.4 2005/05/12 21:51:28 plg Exp $
 //====================================================
 /* Copyright (c) 1999-2004, Paul L. Gatille <paul.gatille@free.fr>
  *
@@ -29,7 +29,7 @@
 
 */
 
-
+#define FASTMEM_ALLOC #warning: find a way to make this conditionnal
 
 #ifdef USE_FASTMEM
 #  undef USE_FASTMEM
@@ -56,16 +56,26 @@
 #include "Objects.h"
 #include "Memory.h"
 
+extern void __dump_call_stack();
+
 #define p2o(A,B) (((B)>0)? ( UI((B)) - UI((A))) : 0)
 
 pthread_once_t _setup_fm_once = PTHREAD_ONCE_INIT;  
 
+#ifdef FASTMEM_ALLOC
 void * (*tb_xmalloc)  (size_t)            = fm_malloc;
 void * (*tb_xcalloc)  (size_t, size_t)    = fm_calloc;
 void * (*tb_xrealloc) (void *, size_t)    = fm_realloc;
 char * (*tb_xstrdup)  (char *)            = fm_strdup;
 void   (*tb_xfree)    (void *)            = fm_free;
 
+#else
+void * (*tb_xmalloc)  (size_t)            = malloc;
+void * (*tb_xcalloc)  (size_t, size_t)    = calloc;
+void * (*tb_xrealloc) (void *, size_t)    = realloc;
+char * (*tb_xstrdup)  (char *)            = strdup;
+void   (*tb_xfree)    (void *)            = free;
+#endif
 
 // big bad glob
 fastMem_t fm;
@@ -88,12 +98,13 @@ static void              __fm_free_no_lock         (void *mem);
 #define assert_vec_is_clean(Vec) assert(((Vec->free_slots+Vec->used_slots)*SZCHUNK+Vec->free\
  +Vec->used)-fm->vectors_size == 0)
 
+#define USE_FASTFREE 0
 
 #ifdef TB_MEM_DEBUG
 #define TB_FASTMEM_DEBUG
 #endif
 
-
+//#define TB_FASTMEM_DEBUG // fixme remove this !!!
 
 #ifdef TB_FASTMEM_DEBUG
 static void _fm_check(char *, int);
@@ -109,6 +120,7 @@ static void _fm_check(char *where, int line) {
 			fm->vectors_size*fm->vectors_nb) {
 		tb_error("fm_check failed in <%s:%d>\n", where, line);
 		__fm_Dump();
+		__dump_call_stack();
 		abort();
 	}
 }
@@ -167,7 +179,7 @@ static void fm_enlarge_heap() {
 		fm->nb_free_vectors++;
 
 	} else {
-		tb_warn("max allocatable mem reached (%d vectors of %d bytes)\n",
+		tb_error("max allocatable mem reached (%d vectors of %d bytes)\n",
 						fm->max_vectors, fm->vectors_size);
 		pthread_mutex_unlock(&fm->lock);
 		__fm_Dump();
@@ -201,6 +213,31 @@ void fm_delObject(tb_Object_t O) {
 	if(fm->dbg && fm->dbg->fm_trace_fh) {
 		fprintf(fm->dbg->fm_trace_fh, 
 						"-O{%ld}:%p:%s:%s:%s:%d\n",
+						pthread_self(), O, tb_nameOf(O->isA), md->func, md->file, md->line);
+	}
+	pthread_mutex_unlock(&fm->lock);
+}
+
+
+void fm_dropObject(tb_Object_t O) {
+	mdbg_t md = get_tb_mdbg();
+ 
+	pthread_mutex_lock(&fm->lock);
+	if(fm->dbg && fm->dbg->fm_trace_fh) {
+		fprintf(fm->dbg->fm_trace_fh, 
+						">O{%ld}:%p:%s:%s:%s:%d\n",
+						pthread_self(), O, tb_nameOf(O->isA), md->func, md->file, md->line);
+	}
+	pthread_mutex_unlock(&fm->lock);
+}
+
+void fm_recycleObject(tb_Object_t O) {
+	mdbg_t md = get_tb_mdbg();
+ 
+	pthread_mutex_lock(&fm->lock);
+	if(fm->dbg && fm->dbg->fm_trace_fh) {
+		fprintf(fm->dbg->fm_trace_fh, 
+						"<O{%ld}:%p:%s:%s:%s:%d\n",
 						pthread_self(), O, tb_nameOf(O->isA), md->func, md->file, md->line);
 	}
 	pthread_mutex_unlock(&fm->lock);
@@ -271,7 +308,7 @@ static int findVec_ndx(fastMem_vector_t vec) {
  * @ingroup Memory
  */
 void fm_fastfree_on() {
-	if(1) {
+	if(USE_FASTFREE) {
 	pthread_once(&_setup_fm_once, setup_fm_once);
 	pthread_mutex_lock(&fm->lock);
 	fm->fastfree ++;
@@ -284,7 +321,7 @@ void fm_fastfree_on() {
  * @ingroup Memory
  */
 void fm_fastfree_off() {
-	if(1) {
+	if(USE_FASTFREE) {
 	pthread_once(&_setup_fm_once, setup_fm_once);
 	pthread_mutex_lock(&fm->lock);
 
@@ -319,6 +356,7 @@ void _setup_fm() {
  * @ingroup Memory
  */
 void *xMalloc(char* func, char *file, int line, size_t sz) {
+#ifdef FASTMEM_ALLOC
 	void *mem = fm_malloc(sz);
 	pthread_mutex_lock(&fm->lock);
 	if(fm->dbg && fm->dbg->fm_trace_fh) {
@@ -327,6 +365,9 @@ void *xMalloc(char* func, char *file, int line, size_t sz) {
 	}
 	pthread_mutex_unlock(&fm->lock);
 	return mem;
+#else
+	return malloc(sz);
+#endif
 }
 
 void *fm_malloc(size_t sz) {
@@ -351,10 +392,6 @@ static void *__fm_malloc(size_t sz) {
 		return malloc(sz);
 	}
 	fm->malloc_call ++;
-
-	if(fm->fastfree) {
-		clean_free_chunks();
-	}
 
 	if( fm->glob_free < rsz + SZCHUNK ) {
 		fm_enlarge_heap();
@@ -431,6 +468,7 @@ static void *__fm_malloc(size_t sz) {
  * @ingroup Memory
  */
 char *xStrdup(char* func, char *file, int line, char *str) {
+#ifdef FASTMEM_ALLOC
 	char *dup = fm_strdup(str);
 	pthread_mutex_lock(&fm->lock);
 	if(fm->dbg && fm->dbg->fm_trace_fh && dup) {
@@ -439,6 +477,9 @@ char *xStrdup(char* func, char *file, int line, char *str) {
 	}
 	pthread_mutex_unlock(&fm->lock);
 	return dup;
+#else
+	return strdup(str);
+#endif
 }
 
 char *fm_strdup(char *str) {
@@ -461,6 +502,7 @@ char *fm_strdup(char *str) {
  * @ingroup Memory
  */
 void *xRealloc(char* func, char *file, int line, void *mem, size_t sz) {
+#ifdef FASTMEM_ALLOC
 	void *new = fm_realloc(mem, sz);
 	pthread_mutex_lock(&fm->lock);
 	if(fm->dbg && fm->dbg->fm_trace_fh) {
@@ -469,6 +511,9 @@ void *xRealloc(char* func, char *file, int line, void *mem, size_t sz) {
 	}
 	pthread_mutex_unlock(&fm->lock);
 	return new;
+#else
+	return realloc(mem, sz);
+#endif
 }
 
 void *fm_realloc(void *mem, size_t new_size) {
@@ -588,6 +633,7 @@ void *fm_realloc(void *mem, size_t new_size) {
  * @ingroup Memory
  */
 void *xCalloc(char* func, char *file, int line, size_t nb, size_t sz) {
+#ifdef FASTMEM_ALLOC
 	void *mem = fm_calloc(sz, nb);
 	pthread_mutex_lock(&fm->lock);
 	if(fm->dbg && fm->dbg->fm_trace_fh) {
@@ -596,6 +642,9 @@ void *xCalloc(char* func, char *file, int line, size_t nb, size_t sz) {
 	}
 	pthread_mutex_unlock(&fm->lock);
 	return mem;
+#else
+	return calloc(sz, nb);
+#endif
 }
 
 void *fm_calloc(size_t sz, size_t nb) {	
@@ -605,6 +654,7 @@ void *fm_calloc(size_t sz, size_t nb) {
 	mem = __fm_malloc(sz*nb);
 	memset(mem, 0, sz*nb);
 	fm->calloc_call++;
+	fm->malloc_call--;
 	pthread_mutex_unlock(&fm->lock);
 	return mem;
 }
@@ -614,6 +664,7 @@ void *fm_calloc(size_t sz, size_t nb) {
  * @ingroup Memory
  */
 void xFree(char* func, char *file, int line, void *mem) {
+#ifdef FASTMEM_ALLOC
 	fm_free(mem);
 	pthread_mutex_lock(&fm->lock);
 	if(fm->dbg && fm->dbg->fm_trace_fh) {
@@ -622,6 +673,9 @@ void xFree(char* func, char *file, int line, void *mem) {
 	}
 	pthread_mutex_unlock(&fm->lock);
 	return;
+#else 
+	free(mem);
+#endif
 }
 
 void fm_free(void *mem) {
@@ -818,7 +872,7 @@ static void clean_free_chunks() {
 		if(Vec->dirty == 0) continue;
 
 #ifdef TB_FASTMEM_DEBUG
-		tb_notice("CleanVector[%d]@%p /sz=%d base=%p/Fslots:%d(%d)/Uslots:%d(%d)/dirty=%d\n", 
+		tb_debug("CleanVector[%d]@%p /sz=%d base=%p/Fslots:%d(%d)/Uslots:%d(%d)/dirty=%d\n", 
 							i, Vec, fm->vectors_size, Vec->base, Vec->free_slots, Vec->free,
 							Vec->used_slots, Vec->used,Vec->dirty);
 #endif
@@ -865,7 +919,7 @@ static void clean_free_chunks() {
 		}
 		Vec->dirty = 0;
 #ifdef TB_FASTMEM_DEBUG
-		tb_notice("CleanedVector[%d]@%p /sz=%d base=%p/Fslots:%d(%d)/Uslots:%d(%d)/dirty=%d [%d]\n", 
+		tb_debug("CleanedVector[%d]@%p /sz=%d base=%p/Fslots:%d(%d)/Uslots:%d(%d)/dirty=%d [%d]\n", 
 							i, Vec, fm->vectors_size, Vec->base, Vec->free_slots, Vec->free,
 							Vec->used_slots, Vec->used,Vec->dirty,
 							((Vec->free_slots+Vec->used_slots) *SZCHUNK + Vec->free +Vec->used)-fm->vectors_size);
@@ -905,7 +959,18 @@ void fm_dumpChunks() {
 		while(UI(chunk) < UI(B)+fm->vectors_size) {
 			void *p=(void *)(UI(FMgetBase(chunk))+chunk->size);
 			if(chunk->status == FREE) {
-				fprintf(stderr, "[%d /sz=%d/%s/base=%d-%d (+%d)/  %d <<= =>> %d ]\n", 
+				fprintf(stderr, "%p@[%d /sz=%d/%s/base=%d-%d (+%d)/  %d <<= =>> %d ]\n", 
+								FMgetBase(chunk),								
+								p2o(B,chunk), chunk->size, 
+								(chunk->status == FREE) ? "F" : "U",
+								(signed int)p2o(B, FMgetBase(chunk)), 
+								(signed int)p2o(B, p),
+								(chunk->status == FREE) ? (UI(chunk->next) - UI(p)) : 0,
+								(chunk->status == FREE) ? p2o(B, chunk->prev) : 0,
+								(chunk->status == FREE) ? p2o(B, chunk->next) : 0);
+			} else {
+				fprintf(stderr, "%p@[%d /sz=%d/%s/base=%d-%d (+%d)/  %d <<= =>> %d ]\n", 
+								FMgetBase(chunk),								
 								p2o(B,chunk), chunk->size, 
 								(chunk->status == FREE) ? "F" : "U",
 								(signed int)p2o(B, FMgetBase(chunk)), 
@@ -925,6 +990,7 @@ static void __fm_Dump() {
 	int n;
 	pthread_once(&_setup_fm_once, setup_fm_once);
 
+	fprintf(stderr, "fastfree counter =%d\n", fm->fastfree);
 	fprintf(stderr, "chunk size=%d\n", SZCHUNK);
 	fprintf(stderr, "vectors_nb=%d\n", fm->vectors_nb);
 	fprintf(stderr, "enlarge_event=%d\n", fm->enlarge_nb);
@@ -969,5 +1035,14 @@ void fm_Dump() {
 	pthread_mutex_unlock(&fm->lock);
 }
 
+char *fm_status(char *buffer, int len) {
+	pthread_once(&_setup_fm_once, setup_fm_once);
+	pthread_mutex_lock(&fm->lock);
+	int all = fm->glob_used+ fm->glob_free+ (SZCHUNK* (fm->glob_free_slots+fm->glob_used_slots));
+	snprintf(buffer, len, "free:%d/used:%d/all=%d", fm->glob_free, fm->glob_used, all);
+	pthread_mutex_unlock(&fm->lock);
+
+	return buffer;
+}
 
 
